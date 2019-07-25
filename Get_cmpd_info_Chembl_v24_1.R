@@ -2,7 +2,8 @@
 
 
 
-library(plyr);library(dplyr)
+library(plyr)
+library(dplyr)
 library(tidyr)
 library(data.table)
 #options(scipen = 99999999)
@@ -24,31 +25,51 @@ con <- dbConnect(drv, dbname = "chembl_24",
 ##################################################################################################################T
 # set directories  ------------
 ##################################################################################################################T
-dir_chembl24_1<-"/Users/nienke/Dropbox (HMS)/CBDM-SORGER/Collaborations/LSP_data_organization/ChemInformatics_Files/ChEMBL_24_1"
-dir_chembl23<-"/Users/nienke/Dropbox (Personal)/Harvard/Novartis_Internship/atHMS/Chembl_V23"
-dir_UniChem<-"/Users/nienke/Dropbox (HMS)/CBDM-SORGER/Collaborations/LSP_data_organization/ChemInformatics_Files/Xrefs_UniChem"
+dir_chembl24_1<-"chembl25"
+# dir_chembl23<-"/Users/nienke/Dropbox (Personal)/Harvard/Novartis_Internship/atHMS/Chembl_V23"
+# dir_UniChem<-"/Users/nienke/Dropbox (HMS)/CBDM-SORGER/Collaborations/LSP_data_organization/ChemInformatics_Files/Xrefs_UniChem"
 
 ##################################################################################################################T
 # create target conversion table  ------------
 ##################################################################################################################T
+dir.create(dir_chembl24_1)
 setwd(dir_chembl24_1)
 list.files()
+download.file(
+  "ftp://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/releases/chembl_24_1/chembl_uniprot_mapping.txt",
+  "chembl_uniprot_mapping.txt"
+)
+
+
+
+
 
 # step 1 --> import chembl generated file & convert to gene_ID
 map_uniprot_chembl<-read.delim("chembl_uniprot_mapping.txt",header = F,skip = 1,
                                col.names = c("uniprot_id","chembl_id","protein_name","target_type"))
 #write.csv(map_uniprot_chembl, file = "map_uniprotID_chemblID.csv",row.names = F)
+
+library(biomaRt)
+mart <- biomaRt::useMart(
+  "ENSEMBL_MART_ENSEMBL",
+  "hsapiens_gene_ensembl"
+)
+map_uniprot_geneID <- biomaRt::select(
+  mart, unique(map_uniprot_chembl$uniprot_id),
+  c("uniprot_gn_id", "entrezgene_id"), "uniprot_gn_id"
+)
+
 map_uniprot_geneID<-read.delim("map_uniprot_geneID")
 
 # step 2 --> append with matches from chembl v23
-setwd(dir_chembl23)
-list.files()
-map_chemblID_geneID_v23<-read.csv("chembl_V23_tid_chemblID_geneID_20170821.csv")%>%
-  mutate(mapping_chembl2entrez_performed_by="nmoret (v23)")
+# setwd(dir_chembl23)
+# list.files()
+# map_chemblID_geneID_v23<-read.csv("chembl_V23_tid_chemblID_geneID_20170821.csv")%>%
+#   mutate(mapping_chembl2entrez_performed_by="nmoret (v23)")
 
-map_chemblID_geneID<-merge(map_uniprot_chembl,map_uniprot_geneID,by="uniprot_id", all.x = T)%>%
-  mutate(mapping_uniprot2chemblID_performed_by="uniprot")%>%
-  merge(.,map_chemblID_geneID_v23[c("chembl_id","gene_id","gene_name","mapping_chembl2entrez_performed_by")],by="chembl_id",all.x=T )
+map_chemblID_geneID<- left_join(map_uniprot_chembl, map_uniprot_geneID, by = c("uniprot_id" = "uniprot_gn_id"))
+  # mutate(mapping_uniprot2chemblID_performed_by="uniprot")%>%
+  # merge(.,map_chemblID_geneID_v23[c("chembl_id","gene_id","gene_name","mapping_chembl2entrez_performed_by")],by="chembl_id",all.x=T )
 
 #map_chemblID_geneID%>%filter(gene_id.x!=gene_id.y)%>%View()
 unmapped_chemblIDtoGeneID<-map_chemblID_geneID%>%filter(is.na(gene_id.x)==T & is.na(gene_id.y)==T)
@@ -123,7 +144,7 @@ map_chemblID_geneID_3<-map_chemblID_geneID_3%>%
   mutate(symbol=component_synonym)%>%
   select(chembl_id, symbol, uniprot_id, geneID_chemblv24, geneID_nmoretChemblv23,geneID_nmoretChemblv24,
             mapping_chembl2entrez_performed_by, mapping_uniprot2chemblID_performed_by,
-            protein_name, gene_name,pref_name, name_ncbi, description, synonyms, organism, tax_id, tid, target_type) ## symbol is empty very often 
+            protein_name, gene_name,pref_name, name_ncbi, description, synonyms, organism, tax_id, tid, target_type) ## symbol is empty very often
 
 #make tall& skinny version of gene id
 map_chemblID_geneID_4<-map_chemblID_geneID_3%>%gather("geneID_source","gene_id",geneID_chemblv24:geneID_nmoretChemblv24,na.rm = T)%>%
@@ -174,6 +195,11 @@ map_chemblID_geneID_6[map_chemblID_geneID_6$tid=="1e+05",]$tid<-"100000"
 ##################################################################################################################T
 # get table w/ all molecule structures, indicate if cmpd has different parental, create temp_id  ------------
 ##################################################################################################################T
+
+# Chembl has salts sometimes separate from free bases, parent_molregno points to
+# free base
+# Trying to reconcile internal LINCS database, which only has a single ID for
+# each compound, regardless of salt, with Chembl
 
 # step 1--> get basic info on molecules
 all_cmpds<-dbGetQuery(con, paste0("select dict.molregno, dict.pref_name, dict.chembl_id, dict.max_phase, syn.synonyms,
@@ -231,7 +257,7 @@ biochem_test<-dbGetQuery(con, paste0("select *
                         and ACT.standard_type in ('IC50','Ki','EC50','Kd','IC90','CC50','ID50','AC50','Inhibition','MIC','Potency','Activity','ED50')
                         and A.assay_cell_type is NULL
                         and A.bao_format not in ('BAO_0000221', 'BAO_0000219','BAO_0000218')
-                                             "))
+                        LIMIT 100"))
 View(biochem_test)
 
 
@@ -267,6 +293,8 @@ activities_biochem_1<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, 
                                              "))
 View(activities_biochem_1)
 
+# Data from "Navigating the Kinome" paper is annotated using F (functional) assay type
+# whereas most other data B (binding)
 activities_biochem_2<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_id, ACT.molregno,ACT.standard_relation, ACT.standard_type,
                                              ACT.standard_value,ACT.standard_units,
                                              A.tid,
@@ -284,9 +312,10 @@ activities_biochem_2<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, 
                                              and A.description like '%Navigating the Kinome%'
                                              "))
 
-activities_biochem<-list()
-activities_biochem[[1]]<-activities_biochem_1
-activities_biochem[[2]]<-activities_biochem_2
+activities_biochem<-list(
+  activities_biochem_1,
+  activities_biochem_2
+)
 activities_biochem<-rbindlist(activities_biochem)%>%data.table(.)
 activities_biochem$tid<-as.character(activities_biochem$tid)
 
@@ -309,7 +338,7 @@ write.csv(activities_biochem_geneid,file = "biochemicaldata_allcmpds_chembl24_1.
 # get phenotypic data all compounds ------------
 ################################################################################################################################################################################################T
 standard_units<-dbGetQuery(con, paste0("
-                                       select distinct(standard_units) 
+                                       select distinct(standard_units)
                                        from activities as ACT
                                        where ACT.molregno in (",toString(all_cmpds$molregno),")"))
 
@@ -317,11 +346,13 @@ standard_units_ok<-c('M','mol/L','nM','nmol/L',
                      'nmol.L-1','pM','pmol/L','pmol/ml','um',
                      'uM','umol/L','umol/ml','umol/uL')
 
-assay_freq<-dbGetQuery(con, paste0(" select assay_id, count(molregno)
-                                   from activities
-                                   where standard_units in ('",paste(standard_units_ok,collapse="','"),"')
-                                   group by assay_id
-                                   "))
+
+
+# assay_freq<-dbGetQuery(con, paste0(" select assay_id, count(molregno)
+#                                    from activities
+#                                    where standard_units in ('",paste(standard_units_ok,collapse="','"),"')
+#                                    group by assay_id
+#                                    "))
 
 units_per_assay<-dbGetQuery(con, paste0(" select assay_id, count(distinct(standard_units)) as count_units,
                                         count(molregno) as count_molregno
@@ -348,6 +379,8 @@ activities_1<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_
                                      and ACT.standard_units in ('",paste(standard_units_ok,collapse="','"),"')
                                      "))
 
+# BAO list is a list of assays that are curated by Nienke to be interpretable
+# https://bioportal.bioontology.org
 activities_2<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_id, ACT.molregno,ACT.standard_relation, ACT.standard_type,
                                              ACT.standard_value,ACT.standard_units,
                                              A.tid,
@@ -364,7 +397,7 @@ activities_2<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_
                                      and A.assay_id not in (",toString(activities_1$assay_id),")
                                      and ACT.standard_units in ('",paste(standard_units_ok,collapse="','"),"')
                                      and BAO.label in ('BAO_0000006','BAO_0000090','BAO_0000094','BAO_0000096','BAO_0000218','BAO_0000219','BAO_0000221')
-                                     limit 10000
+                                     limit 100
                                      "))
 
 
@@ -391,7 +424,7 @@ approval_info<-dbGetQuery(con, paste0("select pref_name, chembl_id as chembl_id_
                               from molecule_dictionary as MOLDICT
                               left join drug_indication as DRUGIND on MOLDICT.molregno = DRUGIND. molregno
                               left join indication_refs as INDREF on DRUGIND.drugind_id=INDREF.drugind_id
-                              where max_phase >0 "))
+                              where max_phase >0 LIMIT 100"))
 View(approval_info)
 
 setwd(dir_chembl24_1)
@@ -419,7 +452,7 @@ chembl2pdb<-chembl2pdb%>%
   mutate(url=paste0(Unichem_sources$base_url[2],Xref_id_compound),
          Xref_type="pdb_id_compound",
          Xref_id_compound=as.character(Xref_id_compound))
-  
+
 chembl2gtopdb<-read.delim("src1src4.txt")
 names(chembl2gtopdb)<-c("chembl_id_compound", "Xref_id_compound")
 chembl2gtopdb<-chembl2gtopdb%>%
@@ -510,7 +543,7 @@ Unichem_sources
 ## has to be done via unichem
 cross_reference_table
 
-dbGetQuery(con, paste0("select * 
+dbGetQuery(con, paste0("select *
                        from compound_records as COMPREC
                        left join docs on COMPREC.src_id=DOCS.src_id
                        where COMPREC.src_id = 20
@@ -522,7 +555,7 @@ dbGetQuery(con, paste0("select *
 # molregno, chembl_id, inchi,synonyms
 
 
-#molecule_dictionary: 
+#molecule_dictionary:
 #molecule_synonyms: synonyms
 #compound_records: SRC_ID, src_compound_id, CIDX, compound_name, compound_key
 #molecule_hierarchy: parent_molregno, active_molregno
