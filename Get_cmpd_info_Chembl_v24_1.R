@@ -3,8 +3,7 @@
 
 
 library(plyr)
-library(dplyr)
-library(tidyr)
+library(tidyverse)
 library(data.table)
 #options(scipen = 99999999)
 ##################################################################################################################T
@@ -25,65 +24,114 @@ con <- dbConnect(drv, dbname = "chembl_24",
 ##################################################################################################################T
 # set directories  ------------
 ##################################################################################################################T
-dir_chembl24_1<-"chembl25"
+dir_chembl <- file.path("~", "repo", "tas_vectors", "chembl24_1")
 # dir_chembl23<-"/Users/nienke/Dropbox (Personal)/Harvard/Novartis_Internship/atHMS/Chembl_V23"
 # dir_UniChem<-"/Users/nienke/Dropbox (HMS)/CBDM-SORGER/Collaborations/LSP_data_organization/ChemInformatics_Files/Xrefs_UniChem"
 
 ##################################################################################################################T
 # create target conversion table  ------------
 ##################################################################################################################T
-dir.create(dir_chembl24_1)
-setwd(dir_chembl24_1)
+dir.create(dir_chembl)
+setwd(dir_chembl)
 list.files()
 download.file(
   "ftp://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/releases/chembl_24_1/chembl_uniprot_mapping.txt",
   "chembl_uniprot_mapping.txt"
 )
 
-
-
-
-
 # step 1 --> import chembl generated file & convert to gene_ID
-map_uniprot_chembl<-read.delim("chembl_uniprot_mapping.txt",header = F,skip = 1,
-                               col.names = c("uniprot_id","chembl_id","protein_name","target_type"))
+
 #write.csv(map_uniprot_chembl, file = "map_uniprotID_chemblID.csv",row.names = F)
 
+chembl_info_all_targets <- dbGetQuery(
+  con,
+  paste0(
+    "select dict.tid, dict.pref_name, dict.tax_id, dict.organism, dict.chembl_id
+    from target_dictionary as dict"
+  )
+) %>%
+  as_tibble() %>%
+  filter(organism %in% c("Homo sapiens", "Mus musculus", "Rattus norvegicus"))
+
+map_uniprot_chembl <- read_tsv(
+  "chembl_uniprot_mapping.txt", skip = 1,
+  col_names = c("uniprot_id", "chembl_id", "protein_name", "target_type")
+) %>%
+  inner_join(chembl_info_all_targets, by = "chembl_id")
+
 library(biomaRt)
-mart <- biomaRt::useMart(
-  "ENSEMBL_MART_ENSEMBL",
-  "hsapiens_gene_ensembl"
-)
-map_uniprot_geneID <- biomaRt::select(
-  mart, unique(map_uniprot_chembl$uniprot_id),
-  c("uniprot_gn_id", "entrezgene_id"), "uniprot_gn_id"
+organism_mart_mapping <- c(
+  "Homo sapiens" = "hsapiens_gene_ensembl",
+  "Rattus norvegicus" = "rnorvegicus_gene_ensembl",
+  "Mus musculus" = "mmusculus_gene_ensembl"
 )
 
-map_uniprot_geneID<-read.delim("map_uniprot_geneID")
 
-# step 2 --> append with matches from chembl v23
-# setwd(dir_chembl23)
-# list.files()
-# map_chemblID_geneID_v23<-read.csv("chembl_V23_tid_chemblID_geneID_20170821.csv")%>%
-#   mutate(mapping_chembl2entrez_performed_by="nmoret (v23)")
+uniprot_to_entrez <- function(df, group) {
+  mart <- useMart(
+    "ENSEMBL_MART_ENSEMBL",
+    organism_mart_mapping[group$organism]
+  )
+  map_uniprot_geneID <- biomaRt::select(
+    mart, unique(df$uniprot_id),
+    c("uniprot_gn_id", "entrezgene_id"), "uniprot_gn_id"
+  )
+  df <- df %>%
+    left_join(map_uniprot_geneID, by = c("uniprot_id" = "uniprot_gn_id"))
+  if (group$organism == "Homo sapiens") {
+    # https://github.com/datarail/genebabel
+    # Additionally query the genebabel package for human genes
+    df <- df %>%
+      filter(is.na(entrezgene_id)) %>%
+      dplyr::select(-entrezgene_id) %>%
+      genebabel::join_hgnc(query_col = "uniprot_id", match_cols = "uniprot_ids", select_cols = "entrez_id") %>%
+      mutate(entrez_id = as.integer(entrez_id)) %>%
+      dplyr::rename(entrezgene_id = entrez_id) %>%
+      bind_rows(filter(df, !is.na(entrezgene_id)))
+  }
+  df
+}
 
-map_chemblID_geneID<- left_join(map_uniprot_chembl, map_uniprot_geneID, by = c("uniprot_id" = "uniprot_gn_id"))
-  # mutate(mapping_uniprot2chemblID_performed_by="uniprot")%>%
-  # merge(.,map_chemblID_geneID_v23[c("chembl_id","gene_id","gene_name","mapping_chembl2entrez_performed_by")],by="chembl_id",all.x=T )
+map_uniprot_chembl <- map_uniprot_chembl %>%
+  group_by(organism) %>%
+  group_modify(uniprot_to_entrez) %>%
+  dplyr::rename(gene_id = entrezgene_id) %>%
+  ungroup()
 
-#map_chemblID_geneID%>%filter(gene_id.x!=gene_id.y)%>%View()
-unmapped_chemblIDtoGeneID<-map_chemblID_geneID%>%filter(is.na(gene_id.x)==T & is.na(gene_id.y)==T)
+# map_uniprot_chembl %>%
+#   filter(is.na(gene_id)) %>%
+#   dplyr::count(organism)
+# # A tibble: 3 x 2
+# organism                n
+# <chr>               <int>
+# 1 Homo sapiens         18
+# 2 Mus musculus        147
+# 3 Rattus norvegicus   604
 
+# Only 18 human uniprot IDs left without a matching Entrez ID, good enough...
 
-# step 3 --> get gene symbol from synonyms table match  gene_id on this
-
-chembl_info_unmapped_targets<-dbGetQuery(con, paste0("select dict.tid, dict.target_type, dict.pref_name, dict.tax_id, dict.organism, dict.chembl_id, syn.component_synonym
-                            from target_dictionary as dict
-                            left join target_components as comp on comp.tid=dict.tid
-                            left join component_synonyms as syn on syn.component_id=comp.component_id
-                            where syn.syn_type like 'GENE_SYMBOL'
-                            and dict.chembl_id in ('",paste(unmapped_chemblIDtoGeneID$chembl_id%>%as.character()%>%unique,collapse="','"),"')
-                            "))
+# map_uniprot_chembl %>%
+#   drop_na(gene_id) %>%
+#   dplyr::count(gene_id) %>%
+#   dplyr::count(n)
+# # A tibble: 15 x 2
+#       n    nn
+#    <int> <int>
+# 1     1  3860
+# 2     2   658
+# 3     3   192
+# 4     4    97
+# 5     5    35
+# 6     6    23
+# 7     7    16
+# 8     8     3
+# 9     9     5
+# 10   10     5
+# 11   11     3
+# 12   12     1
+# 13   13     1
+# 14   14     1
+# 15   16     1
 
 # step 4 --> match with gene_info
 
@@ -92,7 +140,9 @@ chembl_info_unmapped_targets<-dbGetQuery(con, paste0("select dict.tid, dict.targ
 ## select gene_info table
 ## copy table to dir_chembl24_1
 
-setwd(dir_chembl24_1)
+setwd(dir_chembl)
+download.file("ftp://ftp.ncbi.nih.gov/gene/DATA/gene_info.gz", "gene_info_20190725.gz")
+
 #gene_info<-read.delim("gene_info_20190226")
 #gene_info<-gene_info[c("X.tax_id","GeneID","Symbol","Synonyms","description","Full_name_from_nomenclature_authority")]
 #dim(gene_info)
