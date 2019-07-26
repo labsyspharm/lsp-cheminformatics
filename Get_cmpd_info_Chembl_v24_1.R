@@ -189,6 +189,7 @@ all_cmpds <- dbGetQuery(
 ) %>%
   as_tibble() %>%
   mutate(parental_flag = ifelse(molregno != parent_molregno, 1, 0))
+write.csv(all_cmpds, file="all_compounds_chembl24_1.csv",row.names = F)
 # Again, molregno, parent_molregno and active_molregno are integer64...
 
     #step 1.1 create tempID201903_XXX for cmpds w/ parental cmpd
