@@ -1,8 +1,6 @@
 # get infor for smallmoleculesuite 2.0 from chembl
 
 
-
-library(plyr)
 library(tidyverse)
 library(data.table)
 #options(scipen = 99999999)
@@ -10,11 +8,11 @@ library(data.table)
 # connect to chembl v. 24_1  ------------
 ##################################################################################################################T
 
-require("RPostgreSQL")
+library(RPostgres)
 ## in terminal: ssh -L 5433:pgsql96.orchestra:5432 nm192@transfer.rc.hms.harvard.edu
 # first portnumber can change
 # loads the PostgreSQL driver
-drv <- dbDriver("PostgreSQL")
+drv <- dbDriver("Postgres")
 # creates a connection to the postgres database
 # note that "con" will be used later in each connection to the database
 con <- dbConnect(drv, dbname = "chembl_24",
@@ -26,7 +24,7 @@ con <- dbConnect(drv, dbname = "chembl_24",
 ##################################################################################################################T
 dir_chembl <- file.path("~", "repo", "tas_vectors", "chembl24_1")
 # dir_chembl23<-"/Users/nienke/Dropbox (Personal)/Harvard/Novartis_Internship/atHMS/Chembl_V23"
-# dir_UniChem<-"/Users/nienke/Dropbox (HMS)/CBDM-SORGER/Collaborations/LSP_data_organization/ChemInformatics_Files/Xrefs_UniChem"
+dir_UniChem<- file.path("~", "repo", "tas_vectors", "unichem")
 
 ##################################################################################################################T
 # create target conversion table  ------------
@@ -98,9 +96,9 @@ map_uniprot_chembl <- map_uniprot_chembl %>%
   dplyr::rename(gene_id = entrezgene_id) %>%
   ungroup()
 
-# map_uniprot_chembl %>%
-#   filter(is.na(gene_id)) %>%
-#   dplyr::count(organism)
+map_uniprot_chembl %>%
+  filter(is.na(gene_id)) %>%
+  dplyr::count(organism)
 # # A tibble: 3 x 2
 # organism                n
 # <chr>               <int>
@@ -110,10 +108,10 @@ map_uniprot_chembl <- map_uniprot_chembl %>%
 
 # Only 18 human uniprot IDs left without a matching Entrez ID, good enough...
 
-# map_uniprot_chembl %>%
-#   drop_na(gene_id) %>%
-#   dplyr::count(gene_id) %>%
-#   dplyr::count(n)
+map_uniprot_chembl %>%
+  drop_na(gene_id) %>%
+  dplyr::count(gene_id) %>%
+  dplyr::count(n)
 # # A tibble: 15 x 2
 #       n    nn
 #    <int> <int>
@@ -147,100 +145,26 @@ download.file("ftp://ftp.ncbi.nih.gov/gene/DATA/gene_info.gz", "gene_info_201907
 #gene_info<-gene_info[c("X.tax_id","GeneID","Symbol","Synonyms","description","Full_name_from_nomenclature_authority")]
 #dim(gene_info)
 #write.csv(gene_info,file="gene_info_20190226_compact.csv",row.names = F)
-gene_info<-read.csv("gene_info_20190226_compact.csv")
+library(vroom)
+gene_info <- vroom(
+  "gene_info_20190725.gz",
+  delim = "\t",
+  col_names = c(
+    "tax_id", "gene_id", "ncbi_symbol", "locus_tag", "synonyms", "db_xrefs", "chromosome",
+    "map_location", "description", "type_of_gene", "symbol", "name_ncbi", "nomenclature_status",
+    "other_designations", "modification_date", "feature_type"
+  ),
+  col_types = "iic_c___c_cc____",
+  skip = 1
+)
 
-names(chembl_info_unmapped_targets)
-setwd(dir_chembl24_1)
-gene_info_1<-read.csv("gene_info_20190226_addition_to_chemblinfo.csv")
-#gene_info_1<-gene_info%>%
-#  filter(Symbol %in% chembl_info_unmapped_targets$component_synonym)
-target_not_gene_ifo<-chembl_info_unmapped_targets[! chembl_info_unmapped_targets$component_synonym %in% gene_info_1$Symbol,]
-dim(target_not_gene_ifo)
-head(target_not_gene_ifo)
-tid_not_gene_info<-target_not_gene_ifo[!target_not_gene_ifo$tid %in% chembl_info_unmapped_targets$tid,]
-dim(tid_not_gene_info) # success when 0,X
-names(gene_info_1)<-c("tax_id","gene_id","symbol","synonyms","description","name_ncbi")
-#setwd(dir_chembl24_1)
-#write.csv(gene_info_1,file="gene_info_20190226_addition_to_chemblinfo.csv",row.names = F)
+map_chemblID_geneID <- map_uniprot_chembl %>%
+  # Have to cast as integer64 because the Chembl postgresql DB stores some ids
+  # (tid, tax_id) as 64bit integer
+  left_join(mutate_at(gene_info, "tax_id", bit64::as.integer64), by = c("tax_id", "gene_id")) %>%
+  distinct()
 
-
-# step 5 --> merge gene_info to chembl_info_unmapped_targets on symbol&tax_id
-unmapped_chembl_info<-chembl_info_unmapped_targets%>%
-  merge(gene_info_1, by.x=c("tax_id","component_synonym"),by.y = c("tax_id","symbol"))%>%
-  unique()
-dim(chembl_info_unmapped_targets%>%unique())
-dim(unmapped_chembl_info)
-head(unmapped_chembl_info)
-
-# step 6 --> merge doc step 5 with map chembl_id to gene_id
-map_chemblID_geneID%>%head()
-unique(map_chemblID_geneID$mapping_chembl2entrez_performed_by)
-map_chemblID_geneID_2<-merge(map_chemblID_geneID,unmapped_chembl_info, by=c("chembl_id","target_type"),all.x = T )
-names(map_chemblID_geneID_2)[c(5,7,15)]<-c("geneID_chemblv24","geneID_nmoretChemblv23","geneID_nmoretChemblv24")
-names(map_chemblID_geneID_2)
-map_chemblID_geneID_2[is.na(map_chemblID_geneID_2$geneID_nmoretChemblv24)==F,]$mapping_chembl2entrez_performed_by<-"nmoret_ncbi_merge (v24)"
-map_chemblID_geneID_2[is.na(map_chemblID_geneID_2$geneID_chemblv24)==F,]$mapping_chembl2entrez_performed_by<-"nmoret_uniprot"
-unique(map_chemblID_geneID_2$mapping_chembl2entrez_performed_by)
-
-dim(map_chemblID_geneID_2%>%filter((is.na(tax_id)==F & is.na(mapping_chembl2entrez_performed_by)==T)))# zero lines
-map_chemblID_geneID_3<-map_chemblID_geneID_2%>%filter(is.na(mapping_chembl2entrez_performed_by)==F)
-unique(map_chemblID_geneID_3$mapping_chembl2entrez_performed_by)
-dim(map_chemblID_geneID_3)
-
-#step 7 --> prettyfy table
-# reorder columns
-names(map_chemblID_geneID_3)
-map_chemblID_geneID_3<-map_chemblID_geneID_3%>%
-  mutate(symbol=component_synonym)%>%
-  select(chembl_id, symbol, uniprot_id, geneID_chemblv24, geneID_nmoretChemblv23,geneID_nmoretChemblv24,
-            mapping_chembl2entrez_performed_by, mapping_uniprot2chemblID_performed_by,
-            protein_name, gene_name,pref_name, name_ncbi, description, synonyms, organism, tax_id, tid, target_type) ## symbol is empty very often
-
-#make tall& skinny version of gene id
-map_chemblID_geneID_4<-map_chemblID_geneID_3%>%gather("geneID_source","gene_id",geneID_chemblv24:geneID_nmoretChemblv24,na.rm = T)%>%
-  select(chembl_id, symbol, uniprot_id, gene_id, geneID_source,
-         mapping_chembl2entrez_performed_by, mapping_uniprot2chemblID_performed_by,
-         protein_name, gene_name,pref_name, name_ncbi, description, synonyms, organism, tax_id, tid, target_type)%>%
-  arrange(chembl_id)
-head(map_chemblID_geneID_4)
-
-# make sure all rows have gene symbol, all rows tid, target_type, pref_name & organism
-map_chemblID_geneID_5<-map_chemblID_geneID_4%>%
-  merge(gene_info,by.x="gene_id", by.y="GeneID")%>%
-  mutate(symbol=Symbol,
-         name_ncbi=Full_name_from_nomenclature_authority,
-         synonyms=Synonyms,
-         tax_id=X.tax_id,
-         description.x=description.y,
-         description=description.x)%>%
-  select(chembl_id,symbol,gene_id,uniprot_id,geneID_source,mapping_chembl2entrez_performed_by,mapping_uniprot2chemblID_performed_by,
-         protein_name,gene_name,name_ncbi,description, synonyms, tax_id)%>% #tid, target_type, pref_name & organism in seperate query
-  unique()
-
-
-chembl_info_all_targets<-
-    dbGetQuery(con, paste0("select dict.tid, dict.target_type, dict.pref_name, dict.organism, dict.chembl_id
-                            from target_dictionary as dict
-                            left join target_components as comp on comp.tid=dict.tid
-                            and dict.chembl_id in ('",paste(map_chemblID_geneID_5$chembl_id%>%as.character(),collapse="','"),"')
-                            "))%>%unique()
-
-map_chemblID_geneID_5<-data.table(map_chemblID_geneID_5)
-chembl_info_all_targets<-data.table(chembl_info_all_targets)
-
-map_chemblID_geneID_6<-map_chemblID_geneID_5%>%
-  merge(chembl_info_all_targets, by= "chembl_id")%>%
-  mutate(tid=as.character(tid))
-
-class(map_chemblID_geneID_6$tid)
-
-setwd(dir_chembl24_1)
-#write.csv(map_chemblID_geneID_6%>%unique(),file="map_targets_chemblID_genID_uniprot_tid.csv",row.names = F)
-map_chemblID_geneID_6<-read.csv("map_targets_chemblID_genID_uniprot_tid.csv", stringsAsFactors = T)
-map_chemblID_geneID_6[map_chemblID_geneID_6$tid=="1e+05",]$tid<-"100000"
-
-##!! map to famplex id
-
+write_csv(map_chemblID_geneID, "map_targets_chemblID_genID_uniprot_tid.csv.gz")
 
 ##################################################################################################################T
 # get table w/ all molecule structures, indicate if cmpd has different parental, create temp_id  ------------
@@ -252,37 +176,45 @@ map_chemblID_geneID_6[map_chemblID_geneID_6$tid=="1e+05",]$tid<-"100000"
 # each compound, regardless of salt, with Chembl
 
 # step 1--> get basic info on molecules
-all_cmpds<-dbGetQuery(con, paste0("select dict.molregno, dict.pref_name, dict.chembl_id, dict.max_phase, syn.synonyms,
-                                   hi.parent_molregno, hi.active_molregno, struct.standard_inchi
-                                   from molecule_dictionary as dict
-                                   left join molecule_synonyms as syn on dict.molregno = syn.molregno
-                                   left join molecule_hierarchy as hi on dict.molregno = hi.molregno
-                                   left join compound_structures as struct on dict.molregno=struct.molregno"))%>%
-  unique()%>%
-  mutate(parental_flag=ifelse(molregno!=parent_molregno,1,0))
-#setwd(dir_chembl24_1)
-#write.csv(all_cmpds, file="all_compounds_chembl24_1.csv",row.names = F)
-
+all_cmpds <- dbGetQuery(
+  con,
+  paste0(
+  "select distinct dict.molregno, dict.pref_name, dict.chembl_id, dict.max_phase, syn.synonyms,
+    hi.parent_molregno, hi.active_molregno, struct.standard_inchi
+   from molecule_dictionary as dict
+   left join molecule_synonyms as syn on dict.molregno = syn.molregno
+   left join molecule_hierarchy as hi on dict.molregno = hi.molregno
+   left join compound_structures as struct on dict.molregno=struct.molregno"
+  )
+) %>%
+  as_tibble() %>%
+  mutate(parental_flag = ifelse(molregno != parent_molregno, 1, 0))
+# Again, molregno, parent_molregno and active_molregno are integer64...
 
     #step 1.1 create tempID201903_XXX for cmpds w/ parental cmpd
 all_cmpds%>%filter(parental_flag==1)%>%dim()
 all_cmpds%>%filter(parental_flag==0 | is.na(parental_flag)==T)%>%dim()
-all_cmpds<-all_cmpds%>%
- # mutate(molregno_sub=gsub(1,"a",molregno))%>%
-  mutate(temp_id=ifelse(parental_flag==0|is.na(parental_flag)==T,paste0("TempID201903_",formatC(format(molregno,scientific=F)%>%as.numeric(),format = "d",width=8,flag = "0")),
-                        paste0("TempID201903_",formatC(format(parent_molregno,scientific=F)%>%as.numeric(),format = "d",width=8,flag = "0"))))
 
-all_cmpds%>%filter(parental_flag==1)%>%select(temp_id)%>%unique%>%dim()#93901
-all_cmpds%>%filter(parental_flag==1)%>%select(molregno)%>%unique%>%dim()#96503
-all_cmpds%>%filter(parental_flag==0)%>%select(temp_id)%>%unique%>%dim()#1653230
-all_cmpds%>%filter(parental_flag==0)%>%select(molregno)%>%unique%>%dim()#1653230
-all_cmpds%>%select(temp_id)%>%unique()%>%dim()#1732317
+all_cmpds <- all_cmpds %>%
+ # mutate(molregno_sub=gsub(1,"a",molregno))%>%
+  mutate(
+    temp_id = ifelse(
+      parental_flag == 0 | is.na(parental_flag),
+      paste0("TempID201903_", molregno),
+      paste0("TempID201903_", parent_molregno)
+    )
+  )
+
+all_cmpds%>%filter(parental_flag==1)%>%dplyr::select(temp_id)%>%unique%>%dim()#93901
+all_cmpds%>%filter(parental_flag==1)%>%dplyr::select(molregno)%>%unique%>%dim()#96503
+all_cmpds%>%filter(parental_flag==0)%>%dplyr::select(temp_id)%>%unique%>%dim()#1653230
+all_cmpds%>%filter(parental_flag==0)%>%dplyr::select(molregno)%>%unique%>%dim()#1653230
+all_cmpds%>%dplyr::select(temp_id)%>%unique()%>%dim()#1732317
 
 tail(all_cmpds%>%filter(parental_flag==1))
 all_cmpds[all_cmpds$temp_id=='TempID201903_01782648',]%>%View()
 
-setwd(dir_chembl24_1)
-write.csv(all_cmpds, file="all_compounds_chembl24_1_tempID1.csv",row.names = F)
+write_csv(all_cmpds, "all_compounds_chembl24_1_tempID1.csv")
 
 
 ################################################################################################################################################################################################T
@@ -306,12 +238,10 @@ biochem_test<-dbGetQuery(con, paste0("select *
                         and ACT.standard_units = 'nM'
                         and ACT.standard_type in ('IC50','Ki','EC50','Kd','IC90','CC50','ID50','AC50','Inhibition','MIC','Potency','Activity','ED50')
                         and A.assay_cell_type is NULL
-                        and A.bao_format not in ('BAO_0000221', 'BAO_0000219','BAO_0000218')
-                        LIMIT 100"))
-View(biochem_test)
+                        and A.bao_format not in ('BAO_0000221', 'BAO_0000219','BAO_0000218')"))
 
 
-BAO_format<-dbGetQuery(con, paste0("select *
+BAO_format <- dbGetQuery(con, paste0("select *
                         from bioassay_ontology
                                    "))#where bao_id in ('",paste(biochem_test$bao_format%>%unique,collapse="','"),"')
 View(BAO_format)
@@ -366,28 +296,26 @@ activities_biochem<-list(
   activities_biochem_1,
   activities_biochem_2
 )
-activities_biochem<-rbindlist(activities_biochem)%>%data.table(.)
-activities_biochem$tid<-as.character(activities_biochem$tid)
+activities_biochem <- data.table::rbindlist(activities_biochem)
 
-map_chemblID_geneID_formerge<-map_chemblID_geneID_6%>%
-  select(chembl_id,symbol,gene_id,uniprot_id,tax_id,tid,target_type,pref_name)%>%
-  mutate(chembl_id_target=chembl_id)%>%
-  select(-chembl_id)%>%
+map_chemblID_geneID_formerge <- map_chemblID_geneID %>%
+  dplyr::select(chembl_id, symbol, gene_id, uniprot_id, tax_id, tid, target_type, pref_name)%>%
+  rename(chembl_id_target = chembl_id)%>%
   unique()
 
-activities_biochem_geneid<-
-  left_join(activities_biochem,map_chemblID_geneID_formerge,by="tid")%>%
-  as.data.frame(.)# multplicity of table length due to many-to-many gene_id to uniprot_id mapping
+activities_biochem_geneid <-
+  left_join(activities_biochem, map_chemblID_geneID_formerge, by="tid")%>%
+  as_tibble()# multplicity of table length due to many-to-many gene_id to uniprot_id mapping
 
 
-setwd(dir_chembl24_1)
+setwd(dir_chembl)
 write.csv(activities_biochem_geneid,file = "biochemicaldata_allcmpds_chembl24_1.csv",row.names = F)
 
 
 ################################################################################################################################################################################################T
 # get phenotypic data all compounds ------------
 ################################################################################################################################################################################################T
-standard_units<-dbGetQuery(con, paste0("
+standard_units <- dbGetQuery(con, paste0("
                                        select distinct(standard_units)
                                        from activities as ACT
                                        where ACT.molregno in (",toString(all_cmpds$molregno),")"))
@@ -404,10 +332,10 @@ standard_units_ok<-c('M','mol/L','nM','nmol/L',
 #                                    group by assay_id
 #                                    "))
 
-units_per_assay<-dbGetQuery(con, paste0(" select assay_id, count(distinct(standard_units)) as count_units,
+units_per_assay<-dbGetQuery(con, paste0("select assay_id, count(distinct(standard_units)) as count_units,
                                         count(molregno) as count_molregno
                                         from activities
-                                        where standard_units in ('",paste(standard_units_ok,collapse="','"),"')
+                                        where standard_units in ('",paste(standard_units_ok, collapse="','"),"')
                                         group by assay_id
                                         "))
 assays_qualified<-units_per_assay%>%filter(count_units==1)%>%filter(count_molregno>2)
@@ -431,6 +359,8 @@ activities_1<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_
 
 # BAO list is a list of assays that are curated by Nienke to be interpretable
 # https://bioportal.bioontology.org
+# This is to check if we missed any of these assays with the BAO ids listed
+# in the query
 activities_2<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_id, ACT.molregno,ACT.standard_relation, ACT.standard_type,
                                              ACT.standard_value,ACT.standard_units,
                                              A.tid,
@@ -447,7 +377,6 @@ activities_2<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_
                                      and A.assay_id not in (",toString(activities_1$assay_id),")
                                      and ACT.standard_units in ('",paste(standard_units_ok,collapse="','"),"')
                                      and BAO.label in ('BAO_0000006','BAO_0000090','BAO_0000094','BAO_0000096','BAO_0000218','BAO_0000219','BAO_0000221')
-                                     limit 100
                                      "))
 
 
@@ -456,11 +385,11 @@ dim(activities_2)
 pheno_activities<-activities_1
 
 pheno_activities$log10_value<-log10(pheno_activities$standard_value)
-pheno_activities<-pheno_activities%>%filter(log10_value != "NaN")%>%filter(standard_units %in% standard_units_ok)
+pheno_activities<-pheno_activities%>%drop_na(log10_value)%>%filter(standard_units %in% standard_units_ok)
 
 dim(pheno_activities)
 
-setwd(dir_chembl24_1)
+setwd(dir_chembl)
 write.csv(file="phenotypic_assaydata_allcmpds_chemblv24_1.csv",pheno_activities, row.names=F)
 saveRDS(pheno_activities,file = "phenotypic_assaydata_allcmpds_chemblv24_1.RDS")
 
@@ -474,15 +403,14 @@ approval_info<-dbGetQuery(con, paste0("select pref_name, chembl_id as chembl_id_
                               from molecule_dictionary as MOLDICT
                               left join drug_indication as DRUGIND on MOLDICT.molregno = DRUGIND. molregno
                               left join indication_refs as INDREF on DRUGIND.drugind_id=INDREF.drugind_id
-                              where max_phase >0 LIMIT 100"))
+                              where max_phase >0"))
 View(approval_info)
 
-setwd(dir_chembl24_1)
+setwd(dir_chembl)
 write.csv(approval_info, file="approval_info_phase1to4cmpds_ChemblV24_1.csv",row.names = F)
 
-dbGetQuery(con, paste0("select * from drug_indication as DRUGIND
-                        left join indication_refs as INDREF on DRUGIND.drugind_id=INDREF.drugind_id
-                          limit 1000 "))%>%View
+# dbGetQuery(con, paste0("select * from drug_indication as DRUGIND
+#                         left join indication_refs as INDREF on DRUGIND.drugind_id=INDREF.drugind_id"))%>%View
 
 
 ##################################################################################################################T
@@ -491,10 +419,49 @@ dbGetQuery(con, paste0("select * from drug_indication as DRUGIND
 ## goal: get temp_id to crossref doc
 #step1: import crossref docs
 
+dir.create(dir_UniChem, showWarnings = FALSE)
 setwd(dir_UniChem)
 list.files()
+system2(
+  "wget",
+  c(
+    "--recursive",
+    "--no-parent",
+    "-q",
+    "-R", "'index.html*'",
+    "-nH",
+    "--cut-dirs=6",
+    "ftp://ftp.ebi.ac.uk/pub/databases/chembl/UniChem/data/wholeSourceMapping/src_id1"
+  )
+)
+download.file("ftp://ftp.ebi.ac.uk/pub/databases/chembl/UniChem/data/oracleDumps/UDRI232/UC_SOURCE.txt.gz", "UniChem_SourceCode.txt.gz")
 
-Unichem_sources<-read.delim("UniChem_SourceCode")
+Unichem_sources <- read_tsv("UniChem_SourceCode.txt.gz", col_names = FALSE)
+
+unichem_sources <- tribble(
+  ~xref_type, ~source_id,
+  "pdb_id_compound", 3L,
+  "gtopdb_id_compound", 4L,
+  "chebi_id_compound", 7L,
+  "zinc_id_compound", 9L,
+  "emolecules_id_compound", 10L,
+  "fdasrs_id_compound", 14L,
+  "selleck_id_compound", 20L,
+  "pubchem_id_compound", 22L
+) %>%
+  left_join(Unichem_sources, by = c("source_id" = "X1"))
+
+Xref_total <- unichem_sources %>%
+  mutate(
+    map(
+      unichem_id,
+      function(unichem_id) {
+
+      }
+    )
+  )
+
+
 
 chembl2pdb<-read.delim("src1src3.txt")
 names(chembl2pdb)<-c("chembl_id_compound", "Xref_id_compound")
