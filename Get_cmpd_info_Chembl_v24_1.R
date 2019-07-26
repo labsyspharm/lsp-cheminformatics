@@ -435,110 +435,37 @@ system2(
     "ftp://ftp.ebi.ac.uk/pub/databases/chembl/UniChem/data/wholeSourceMapping/src_id1"
   )
 )
-download.file("ftp://ftp.ebi.ac.uk/pub/databases/chembl/UniChem/data/oracleDumps/UDRI232/UC_SOURCE.txt.gz", "UniChem_SourceCode.txt.gz")
+download.file(
+  "ftp://ftp.ebi.ac.uk/pub/databases/chembl/UniChem/data/oracleDumps/UDRI232/UC_SOURCE.txt.gz",
+  "UniChem_SourceCode.txt.gz"
+)
 
-Unichem_sources <- read_tsv("UniChem_SourceCode.txt.gz", col_names = FALSE)
-
-unichem_sources <- tribble(
-  ~xref_type, ~source_id,
-  "pdb_id_compound", 3L,
-  "gtopdb_id_compound", 4L,
-  "chebi_id_compound", 7L,
-  "zinc_id_compound", 9L,
-  "emolecules_id_compound", 10L,
-  "fdasrs_id_compound", 14L,
-  "selleck_id_compound", 20L,
-  "pubchem_id_compound", 22L
+unichem_sources <- read_tsv(
+  "UniChem_SourceCode.txt.gz",
+  col_names = c("source_number", "source_name", "date_created", "base_url"),
+  col_types = "ic___c_____c______________"
 ) %>%
-  left_join(Unichem_sources, by = c("source_id" = "X1"))
+  filter(
+    source_number %in% c(3L, 4L, 7L, 9L, 10L, 14L, 20L, 22L)
+  ) %>%
+  mutate(xref_type = paste0(source_name, "_id_compound"))
 
 Xref_total <- unichem_sources %>%
   mutate(
-    map(
-      unichem_id,
-      function(unichem_id) {
-
+    xref_map = map(
+      source_number,
+      function(source_number) {
+        read_tsv(
+          file.path(dir_UniChem, "src_id1", paste0("src1src", source_number, ".txt.gz")),
+          col_names = c("chembl_id_compound", "Xref_id_compound"),
+          col_types = "cc",
+          skip = 1
+        )
       }
     )
-  )
-
-
-
-chembl2pdb<-read.delim("src1src3.txt")
-names(chembl2pdb)<-c("chembl_id_compound", "Xref_id_compound")
-chembl2pdb<-chembl2pdb%>%
-  mutate(url=paste0(Unichem_sources$base_url[2],Xref_id_compound),
-         Xref_type="pdb_id_compound",
-         Xref_id_compound=as.character(Xref_id_compound))
-
-chembl2gtopdb<-read.delim("src1src4.txt")
-names(chembl2gtopdb)<-c("chembl_id_compound", "Xref_id_compound")
-chembl2gtopdb<-chembl2gtopdb%>%
-  mutate(url=paste0(Unichem_sources$base_url[3],Xref_id_compound),
-         Xref_type="gtopdb_id_compound",
-         Xref_id_compound=as.character(Xref_id_compound))
-
-chembl2chebi<-read.delim("src1src7.txt")
-names(chembl2chebi)<-c("chembl_id_compound", "Xref_id_compound")
-chembl2chebi<-chembl2chebi%>%
-  mutate(url=paste0(Unichem_sources$base_url[4],Xref_id_compound),
-         Xref_type="chebi_id_compound",
-         Xref_id_compound=as.character(Xref_id_compound))
-
-chembl2zinc<-read.delim("src1src9.txt")
-names(chembl2zinc)<-c("chembl_id_compound", "Xref_id_compound")
-chembl2zinc<-chembl2zinc%>%
-  mutate(url=paste0(Unichem_sources$base_url[5],Xref_id_compound),
-         Xref_type="zinc_id_compound",
-         Xref_id_compound=as.character(Xref_id_compound))
-
-chembl2emolecules<-read.delim("src1src10.txt")
-names(chembl2emolecules)<-c("chembl_id_compound","Xref_id_compound")
-chembl2emolecules<-chembl2emolecules%>%
-  mutate(url=paste0(Unichem_sources$base_url[6],Xref_id_compound),
-         Xref_type="emolecules_id_compound",
-         Xref_id_compound=as.character(Xref_id_compound))
-
-chembl2fdasrs<-read.delim("src1src14.txt")
-names(chembl2fdasrs)<-c("chembl_id_compound", "Xref_id_compound")
-chembl2fdasrs<-chembl2fdasrs%>%
-  mutate(url=paste0(Unichem_sources$base_url[7],Xref_id_compound),
-         Xref_type="fdasrs_id_compound",
-         Xref_id_compound=as.character(Xref_id_compound))
-
-chembl2selleck<-read.delim("src1src20.txt")
-names(chembl2selleck)<-c("chembl_id_compound", "Xref_id_compound")
-chembl2selleck<-chembl2selleck%>%
-  mutate(url=paste0(Unichem_sources$base_url[8],Xref_id_compound,".html"),
-         Xref_type="selleck_id_compound",
-         Xref_id_compound=as.character(Xref_id_compound))
-
-chembl2pubchem<-read.delim("src1src22.txt")
-names(chembl2pubchem)<-c("chembl_id_compound", "Xref_id_compound")
-chembl2pubchem<-chembl2pubchem%>%
-  mutate(url=paste0(Unichem_sources$base_url[9],Xref_id_compound),
-         Xref_type="pubchem_id_compound",
-         Xref_id_compound=as.character(Xref_id_compound))
-
-head(chembl2chebi)
-head(chembl2pdb)
-head(chembl2fdasrs)
-head(chembl2gtopdb)
-head(chembl2pubchem)
-head(chembl2selleck)
-head(chembl2zinc)
-head(chembl2emolecules)
-
-list_Xref_total<-list()
-list_Xref_total[[1]]<-chembl2chebi
-list_Xref_total[[2]]<-chembl2emolecules
-list_Xref_total[[3]]<-chembl2fdasrs
-list_Xref_total[[4]]<-chembl2gtopdb
-list_Xref_total[[5]]<-chembl2pdb
-list_Xref_total[[6]]<-chembl2pubchem
-list_Xref_total[[7]]<-chembl2selleck
-list_Xref_total[[8]]<-chembl2zinc
-Xref_total<-bind_rows(list_Xref_total)%>%arrange(chembl_id_compound)
+  ) %>%
+  unnest(xref_map) %>%
+  mutate(url = paste0(base_url, Xref_id_compound))
 
 setwd(dir_UniChem)
 write.csv(Xref_total,file="xref_table_unichem_20190325.csv",row.names = F)
