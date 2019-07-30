@@ -74,21 +74,62 @@ write_csv(all_cmpds_parent_mapped, "all_compounds_chembl24_1_parent_mapped.csv.g
 # Mapping LINCS IDs to Chembl -----------------------------
 #################################################################################T
 
-# Attempt to get hms lincs ID map automagically from HMS LINCS website
-hms_lincs_compounds_json <- GET(
-  modify_url(
-    "http://lincs.hms.harvard.edu",
-    path = "/db/api/v1/smallmolecule/",
-    query = list("limit" = "100000")
+# Attempt to get hms lincs ID map automagically from the HMS LINCS reagent tracker
+# Set username and password in ~/.Renviron
+# ECOMMONS_USERNAME=xxx
+# ECOMMONS_PASSWORD=xxx
+
+login_token <- POST(
+  "https://reagenttracker.hms.harvard.edu/api/v0/login",
+  body = list(
+    username = Sys.getenv("ECOMMONS_USERNAME"),
+    password = Sys.getenv("ECOMMONS_PASSWORD")
   ),
+  encode = "json"
+)
+
+rt_response = GET(
+  "https://reagenttracker.hms.harvard.edu/api/v0/search?q=",
   accept_json()
 )
 
-hms_lincs_compounds <- content(hms_lincs_compounds_json, "text") %>%
-  jsonlite::fromJSON() %>%
-  .$objects %>%
+rt_json <- rt_response %>%
+  content("text") %>%
+  jsonlite::fromJSON()
+
+rt_df <- rt_json$canonicals %>%
   as_tibble() %>%
-  mutate(hms_id = paste0("HMSL", str_match(hmsLincsID, "([0-9]+)-([0-9]+)")[, 2]))
+  filter(type == "small_molecule", name != "DEPRECATED") %>%
+  select(hms_id = lincs_id, name, alternate_names, smiles, inchi, inchi_key)
+
+
+# Convert smiles to inchi, where no inchi is provided
+smiles_to_ichi <- function(smiles) {
+  res <- POST(
+    "http://127.0.0.1:5000/query/convert",
+    body = list(
+      "in" = "smiles",
+      "out" = "inchi",
+      "value" = smiles
+    ),
+    encode = "multipart",
+    accept_json()
+  )
+  content(res, as = "text", encoding = "UTF-8") %>%
+    jsonlite::fromJSON() %>%
+    .$converted %>%
+    .$inchi
+}
+
+rt_df_inchi <- rt_df %>%
+  mutate(
+    inchi = map2_chr(
+      smiles, inchi,
+      # Only convert if inchi is unknown and smiles is known
+      # otherwise use known inchi
+      ~if (is.na(.y) && !is.na(.x)) smiles_to_ichi(.x) else .y
+    )
+  )
 
 # Disregard the annotated Chembl ID in the HMS LINCS database because it may
 # point to the salt compound and we always want the free base ID
@@ -97,42 +138,48 @@ hms_lincs_compounds <- content(hms_lincs_compounds_json, "text") %>%
 # We have to first generate a list of possible tautomers of the molecules,
 # the inchi listed is not necessarily the one used in Chembl
 
-request_tautomers <- function(inchi, max_tautomers = 10) {
+request_tautomers <- function(key, value, max_tautomers = 10) {
+  message("Processing ", key, ": ", value)
   res <- POST(
     "http://127.0.0.1:5000/query/tautomers",
-    body = list(
-      "inchi" = inchi
-    ),
+    body = as.list(set_names(value, key)),
     encode = "multipart",
     accept_json()
   )
-  content(res, as = "text") %>%
+  content(res, as = "text", encoding = "UTF-8") %>%
     jsonlite::fromJSON() %>%
     .$tautomers %>%
     as_tibble()
 }
 
-hms_lincs_compounds_tautomers <- hms_lincs_compounds %>%
-  distinct(hms_id, smInchiParent) %>%
-  filter(smInchiParent != "-") %>%
+# Trying to use inchi for finding tautomers, if not annotated use smiles
+hms_lincs_compounds_long <- rt_df %>%
+  gather(key = "key", value = "value", smiles, inchi) %>%
+  arrange(hms_id, key) %>%
+  drop_na(value) %>%
+  # Some inchis have newline characters at the end of line, remove them
+  mutate(value = trimws(value)) %>%
+  group_by(hms_id) %>%
+  slice(1) %>%
+  ungroup()
+
+hms_lincs_compounds_tautomers <- hms_lincs_compounds_long %>%
   mutate(
-    tautomers = map(
-      smInchiParent,
-      request_tautomers
+    tautomers = map2(key, value, request_tautomers)
     )
   )
 
 hms_lincs_compounds_tautomers_flat <- bind_rows(
-  # First the original inchis from HMS LIINCS
-  hms_lincs_compounds %>%
-    distinct(hms_id, inchi = smInchiParent) %>%
-    mutate(inchi_source = "HMS_LINCS"),
+  # First the original chemical identifiers from HMS LIINCS
+  hms_lincs_compounds_long %>%
+    distinct(hms_id, key, value) %>%
+    mutate(id_source = "HMS_LINCS"),
   # And the found tautomers
   hms_lincs_compounds_tautomers %>%
     mutate(
       tautomers = tautomers %>%
-        map(mutate, inchi_source = "HMS_LINCS_TAUTOMERS") %>%
-        map(distinct, inchi_source, inchi) %>%
+        map(mutate, id_source = "HMS_LINCS_TAUTOMERS") %>%
+        map(distinct, id_source, inchi) %>%
         # Remove cases where the found tautomer is exactly the same as the query
         map2(smInchiParent, ~filter(.x, inchi != .y))
     ) %>%
