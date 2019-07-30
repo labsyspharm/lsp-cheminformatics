@@ -100,7 +100,7 @@ rt_json <- rt_response %>%
 rt_df <- rt_json$canonicals %>%
   as_tibble() %>%
   filter(type == "small_molecule", name != "DEPRECATED") %>%
-  select(hms_id = lincs_id, name, alternate_names, smiles, inchi, inchi_key)
+  select(hms_id = lincs_id, name, alternate_names, smiles, inchi, inchi_key, chembl_id)
 
 
 # Convert smiles to inchi, where no inchi is provided
@@ -124,10 +124,10 @@ smiles_to_ichi <- function(smiles) {
 rt_df_inchi <- rt_df %>%
   mutate(
     inchi = map2_chr(
-      smiles, inchi,
+      inchi, smiles,
       # Only convert if inchi is unknown and smiles is known
       # otherwise use known inchi
-      ~if (is.na(.y) && !is.na(.x)) smiles_to_ichi(.x) else .y
+      ~if (is.na(.x) && !is.na(.y)) smiles_to_ichi(.y) else .x
     )
   )
 
@@ -138,7 +138,7 @@ rt_df_inchi <- rt_df %>%
 # We have to first generate a list of possible tautomers of the molecules,
 # the inchi listed is not necessarily the one used in Chembl
 
-request_tautomers <- function(key, value, max_tautomers = 10) {
+request_tautomers <- function(value, key, max_tautomers = 10) {
   message("Processing ", key, ": ", value)
   res <- POST(
     "http://127.0.0.1:5000/query/tautomers",
@@ -152,42 +152,72 @@ request_tautomers <- function(key, value, max_tautomers = 10) {
     as_tibble()
 }
 
-# Trying to use inchi for finding tautomers, if not annotated use smiles
-hms_lincs_compounds_long <- rt_df %>%
-  gather(key = "key", value = "value", smiles, inchi) %>%
-  arrange(hms_id, key) %>%
-  drop_na(value) %>%
+hms_lincs_compounds_tautomers <- rt_df_inchi %>%
+  drop_na(inchi) %>%
   # Some inchis have newline characters at the end of line, remove them
-  mutate(value = trimws(value)) %>%
-  group_by(hms_id) %>%
-  slice(1) %>%
-  ungroup()
-
-hms_lincs_compounds_tautomers <- hms_lincs_compounds_long %>%
+  mutate(inchi = trimws(inchi)) %>%
   mutate(
-    tautomers = map2(key, value, request_tautomers)
-    )
+    tautomers = map(inchi, request_tautomers, key = "inchi", max_tautomers = 100)
   )
 
 hms_lincs_compounds_tautomers_flat <- bind_rows(
   # First the original chemical identifiers from HMS LIINCS
-  hms_lincs_compounds_long %>%
-    distinct(hms_id, key, value) %>%
+  rt_df_inchi %>%
+    distinct(hms_id, inchi) %>%
     mutate(id_source = "HMS_LINCS"),
   # And the found tautomers
   hms_lincs_compounds_tautomers %>%
+    rename(original_inchi = inchi) %>%
     mutate(
       tautomers = tautomers %>%
         map(mutate, id_source = "HMS_LINCS_TAUTOMERS") %>%
         map(distinct, id_source, inchi) %>%
         # Remove cases where the found tautomer is exactly the same as the query
-        map2(smInchiParent, ~filter(.x, inchi != .y))
+        map2(original_inchi, ~filter(.x, inchi != .y))
     ) %>%
     select(hms_id, tautomers) %>%
     unnest() %>%
     distinct()
 ) %>%
-  arrange(hms_id)
+  arrange(hms_id) %>%
+  drop_na(inchi)
+
+# How many tautomers per hms id
+hms_lincs_compounds_tautomers_flat %>%
+  count(hms_id) %>%
+  count(n) %>%
+  print(n = Inf)
+# # A tibble: 28 x 2
+# n    nn
+# <int> <int>
+#   1     1   814
+# 2     2   314
+# 3     3   165
+# 4     4   140
+# 5     5    83
+# 6     6    66
+# 7     7    50
+# 8     8    50
+# 9     9    57
+# 10    10    43
+# 11    11    48
+# 12    12    37
+# 13    13    22
+# 14    14    33
+# 15    15    14
+# 16    16    13
+# 17    17    10
+# 18    18     4
+# 19    19     3
+# 20    21     1
+# 21    22     2
+# 22    23     1
+# 23    24     2
+# 24    25     1
+# 25    26     5
+# 26    29     1
+# 27    31     1
+# 28    34     1
 
 hms_lincs_compounds_mapped <- hms_lincs_compounds_tautomers_flat %>%
   left_join(
@@ -195,25 +225,35 @@ hms_lincs_compounds_mapped <- hms_lincs_compounds_tautomers_flat %>%
       # Using parent_chembl_id because it points to the parent free base ID
       distinct(chembl_id = parent_chembl_id, standard_inchi),
     by = c("inchi" = "standard_inchi")
-  )
+  ) %>%
+  drop_na(chembl_id)
 
 # Any cases where for a single hms_id multiple Chembl IDs where found?
 hms_lincs_compounds_mapped %>%
   drop_na(chembl_id) %>%
   count(hms_id) %>%
   count(n)
-# # A tibble: 1 x 2
+# # A tibble: 2 x 2
 # n    nn
 # <int> <int>
-#   1     1   465
+#   1     1  1560
+# 2     2    37
+
+hms_lincs_compounds_mapped %>%
+  arrange(hms_id) %>%
+  group_by(hms_id) %>%
+  filter(n() > 1)
+
+# Check how to deal with this, chembl appears to have multiple tautomers
+# and often enantiomers separately
 
 hms_lincs_compounds_mapped_merged <- bind_rows(
   # Coumpounds where we got the chembl_id by querying chembl with the inchi
   hms_lincs_compounds_mapped %>%
     mutate(chembl_id_source = "INCHI_MAPPING"),
   # Compounds where a Chembl ID was stored in HMS LINCS
-  hms_lincs_compounds %>%
-    distinct(hms_id, inchi = smInchiParent, chembl_id = chemblID) %>%
+  rt_df_inchi %>%
+    distinct(hms_id, inchi, chembl_id) %>%
     drop_na(chembl_id) %>%
     mutate(
       chembl_id_source = "HMS_LINCS",
