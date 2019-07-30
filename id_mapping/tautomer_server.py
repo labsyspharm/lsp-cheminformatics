@@ -39,7 +39,7 @@ def process_tautomers():
     mol_smiles = Chem.MolToSmiles(mol)
     mol_inchi = inchi.MolToInchi(mol)
     mol_inchi_key = inchi.MolToInchiKey(mol)
-    max_tautomers = request.form.get("tautomers", 10)
+    max_tautomers = request.form.get("max_tautomers", 10)
     tauts = make_tautomers(mol, max_tautomers = max_tautomers)
     print(f"Found tautomers: {len(tauts)}")
     return {
