@@ -257,12 +257,13 @@ hms_lincs_compounds_mapped_merged <- bind_rows(
     drop_na(chembl_id) %>%
     mutate(
       chembl_id_source = "HMS_LINCS",
-      chembl_id = paste0("CHEMBL", chembl_id),
       inchi_source = "HMS_LINCS"
     )
 ) %>%
   arrange(hms_id) %>%
   drop_na(chembl_id) %>%
+  # Some inchi's stored with whitespace at the end, removing that
+  mutate(inchi = trimws(inchi)) %>%
   group_by(hms_id, inchi, chembl_id) %>%
   summarize(
     inchi_source = paste(unique(inchi_source), collapse = "/"),
@@ -273,5 +274,10 @@ hms_lincs_compounds_mapped_merged <- bind_rows(
 hms_lincs_compounds_mapped_merged %>%
   count(hms_id, chembl_id) %>%
   count(n)
+# # A tibble: 2 x 2
+# n    nn
+# <int> <int>
+#   1     1  1653
+# 2     2     3
 
 write_csv(hms_lincs_compounds_mapped_merged, "hms_lincs_chembl_mapping.csv.gz")

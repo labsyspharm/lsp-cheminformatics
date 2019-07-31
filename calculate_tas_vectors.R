@@ -26,14 +26,14 @@ hmsl_kinomescan %>%
 # # A tibble: 1 x 2
 # n    nn
 # <int> <int>
-#   1     1 48738
+#   1     1 64784
 
 
 complete_table_tas <- complete_table_Q1 %>%
   mutate(
     tas = case_when(
       Q1 < 100 ~ 1L,
-      Q1 < 999 ~ 2L,
+      Q1 < 1000 ~ 2L,
       Q1 < 10000 ~ 3L,
       Q1 >= 10000 ~ 10L,
       TRUE ~ NA_integer_
@@ -88,9 +88,13 @@ combined_q1 %>%
   drop_na() %>%
   filter(tas_affinity != tas_inhibition)
 
-# Taking minimum TAS again
+# Prefer results from full affinity measuremennts over the percent inhibition
 combined_q1_agg <- combined_q1 %>%
-  mutate(tas_combined = pmin(tas_affinity, tas_inhibition, na.rm = TRUE))
+  mutate(tas_combined = ifelse(is.na(tas_affinity), tas_inhibition, tas_affinity))
+
+# When incorporating Verena's manual annotatations, prefer affinity data.
+# If affinity data not present, take minimum of of Verena + percent control
+
 
 setwd(dir_cheminformatics_files)
 

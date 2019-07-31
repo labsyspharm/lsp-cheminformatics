@@ -191,7 +191,7 @@ hmsl_kinomescan_q1 <- hmsl_kinomescan_mapped %>%
   as.data.table() %>%
   .[
     ,
-    .(percent_control_Q1 = round(quantile(percent_control, 0.25, names = FALSE))),
+    .(percent_control_Q1 = quantile(percent_control, 0.25, names = FALSE)),
     by = .(chembl_id, gene_id, cmpd_conc_nM)
     ] %>%
   as_tibble()
