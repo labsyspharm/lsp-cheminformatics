@@ -17,7 +17,7 @@ from chemfp.commandline import simsearch
 identifier_mol_mapping = {"smiles": Chem.MolFromSmiles, "inchi": inchi.MolFromInchi}
 
 # Run using:
-# FLASK_APP=id_mapping/tautomer_server.py flask run -p 8000
+# FLASK_APP=id_mapping/fingerprint_server.py flask run -p 8000
 # OR to support multiple parallel requests to speed things up:
 # PYTHONPATH=id_mapping gunicorn --workers=4 -b 127.0.0.1:8000 -t 600 fingerprint_server:app
 

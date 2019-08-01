@@ -3,18 +3,18 @@ from rdkit import Chem
 from rdkit.Chem import inchi
 from molvs import tautomer
 
-# Run by setting
-# export FLASK_APP=id_mapping/tautomer_server.py
-# flask run
+# Run using:
+# FLASK_APP=id_mapping/tautomer_server.py flask run -p 5000
+# OR to support multiple parallel requests to speed things up:
+# PYTHONPATH=id_mapping gunicorn --workers=4 -b 127.0.0.1:5000 -t 600 tautomer_server:app
 
-def make_tautomers(mol, max_tautomers = 10):
-    enum = tautomer.TautomerEnumerator(max_tautomers = max_tautomers)
+
+def make_tautomers(mol, max_tautomers=10):
+    enum = tautomer.TautomerEnumerator(max_tautomers=max_tautomers)
     return enum(mol)
-    
-identifier_mol_mapping = {
-    "smiles": Chem.MolFromSmiles,
-    "inchi": inchi.MolFromInchi,
-}
+
+
+identifier_mol_mapping = {"smiles": Chem.MolFromSmiles, "inchi": inchi.MolFromInchi}
 
 mol_identifier_mapping = {
     "smiles": Chem.MolToSmiles,
@@ -24,13 +24,14 @@ mol_identifier_mapping = {
 
 app = Flask(__name__)
 
+
 @app.route("/query/tautomers", methods=["POST"])
 def process_tautomers():
     ids_used = [k for k in identifier_mol_mapping.keys() if k in request.form]
     if not len(ids_used) == 1:
         raise ValueError(
             "Request needs to contain exactly one of these identifies: ",
-            repr(list(identifier_mol_mapping.keys()))
+            repr(list(identifier_mol_mapping.keys())),
         )
     id_used = ids_used[0]
     mol_input = request.form[id_used]
@@ -40,7 +41,7 @@ def process_tautomers():
     mol_inchi = inchi.MolToInchi(mol)
     mol_inchi_key = inchi.MolToInchiKey(mol)
     max_tautomers = request.form.get("max_tautomers", 10)
-    tauts = make_tautomers(mol, max_tautomers = max_tautomers)
+    tauts = make_tautomers(mol, max_tautomers=max_tautomers)
     print(f"Found tautomers: {len(tauts)}")
     return {
         "request": {
@@ -57,26 +58,58 @@ def process_tautomers():
             for t in tauts
         ],
     }
-    
+
+
+@app.route("/query/canonicalize", methods=["POST"])
+def canonicalize():
+    ids_used = [k for k in identifier_mol_mapping.keys() if k in request.json]
+    if not len(ids_used) == 1:
+        raise ValueError(
+            "Request needs to contain exactly one of these identifies: ",
+            repr(list(identifier_mol_mapping.keys())),
+        )
+    id_used = ids_used[0]
+    mol_input = request.json[id_used]
+    if not isinstance(mol_input, list):
+        mol_input = [mol_input]
+    print(f"Requested canonical tautomer for {id_used} input")
+    canonicalizer = tautomer.TautomerCanonicalizer()
+    mol_mapping = identifier_mol_mapping[id_used]
+    res = list()
+    skipped = list()
+    for ms in mol_input:
+        mol = mol_mapping(ms)
+        if mol is None:
+            skipped.append(ms)
+            continue
+        can = canonicalizer(mol)
+        can_smiles = Chem.MolToSmiles(mol)
+        can_inchi = inchi.MolToInchi(mol)
+        res.append((ms, can_smiles, can_inchi))
+    res = list(zip(*res))
+    return {
+        "canonicalized": {"query": res[0], "smiles": res[1], "inchi": res[2]},
+        "skipped": skipped,
+    }
+
+
 @app.route("/query/convert", methods=["POST"])
 def convert_ids():
     format_in = request.form["in"]
     if format_in not in identifier_mol_mapping:
-        raise ValueError("input must be one of: ", repr(list(identifier_mol_mapping.keys)))
+        raise ValueError(
+            "input must be one of: ", repr(list(identifier_mol_mapping.keys))
+        )
     format_out = request.form["out"]
     if format_out not in mol_identifier_mapping:
-        raise ValueError("output must be one of: ", repr(list(mol_identifier_mapping.keys)))
+        raise ValueError(
+            "output must be one of: ", repr(list(mol_identifier_mapping.keys))
+        )
     id_in = request.form["value"]
     print(f"Requested conversion of {format_in} {id_in} to {format_out}")
     mol = identifier_mol_mapping[format_in](id_in)
     mol_out = mol_identifier_mapping[format_out](mol)
     return {
-        "request": {
-            "in": format_in,
-            "out": format_out,
-            "value": id_in,
-        },
-        "converted": {
-            format_out: mol_out,
-        },
+        "request": {"in": format_in, "out": format_out, "value": id_in},
+        "converted": {format_out: mol_out},
     }
