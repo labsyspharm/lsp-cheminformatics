@@ -1,5 +1,6 @@
 from __future__ import print_function
 import argparse
+import base64
 import pickle
 import os
 import sys
@@ -15,6 +16,11 @@ from chemfp.commandline import simsearch
 
 identifier_mol_mapping = {"smiles": Chem.MolFromSmiles, "inchi": inchi.MolFromInchi}
 
+# Run using:
+# FLASK_APP=id_mapping/tautomer_server.py flask run -p 8000
+# OR to support multiple parallel requests to speed things up:
+# PYTHONPATH=id_mapping gunicorn --workers=4 -b 127.0.0.1:8000 -t 600 fingerprint_server:app
+
 app = Flask(__name__)
 
 
@@ -23,13 +29,23 @@ def fingerprint_db():
     cmpd_json = request.json["compounds"]
     cmpd_encoding = request.json["request"]["encoding"]
     input_df = pd.DataFrame(cmpd_json)
+    if len(input_df) > 100000:
+        raise ValueError(
+            "input_df must be less than 100.000 rows for performance reasons"
+        )
     print (input_df.head())
     mol_func = identifier_mol_mapping[cmpd_encoding]
     temp_sdf = tempfile.NamedTemporaryFile(mode="wb", suffix=".sdf.gz", delete=False)
     temp_sdf_gz = gzip.GzipFile(fileobj=temp_sdf)
     sdf_writer = Chem.SDWriter(temp_sdf_gz)
-    for cmpd in input_df.itertuples():
-        m = mol_func(str(cmpd.compound))
+    skipped = list()
+    for i, cmpd in enumerate(input_df.itertuples()):
+        if i % 10000 == 0:
+            print ("{} done".format(i))
+        m = mol_func(str(cmpd.compound), sanitize=True)
+        if m is None:
+            skipped.append(cmpd.name)
+            continue
         m.SetProp("name", str(cmpd.name))
         sdf_writer.write(m)
     sdf_writer.close()
@@ -39,7 +55,9 @@ def fingerprint_db():
     temp_fps = tempfile.mkstemp(suffix=".fps")
     rdkit2fps.main(["-o", temp_fps[1], "--id-tag", "name", temp_sdf.name])
     os.remove(temp_sdf.name)
-    return send_file(temp_fps[1])
+    with open(temp_fps[1], "rb") as f:
+        fps_b64 = base64.b64encode(f.read())
+    return {"fps_file": fps_b64, "skipped_compounds": skipped}
 
 
 def pairwise(iterable):
