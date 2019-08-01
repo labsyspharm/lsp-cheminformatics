@@ -57,6 +57,7 @@ def fingerprint_db():
     os.remove(temp_sdf.name)
     with open(temp_fps[1], "rb") as f:
         fps_b64 = base64.b64encode(f.read())
+    os.remove(temp_fps[1])
     return {"fps_file": fps_b64, "skipped_compounds": skipped}
 
 
@@ -91,6 +92,7 @@ def fingerprint_search():
     temp_db = tempfile.mkstemp(suffix=".fps")
     temp_out = tempfile.mkstemp(suffix=".txt")
     fingerprint_db.save(temp_db[1])
+    print("Starting processing")
     args = []
     if fingerprint_query:
         temp_query = tempfile.mkstemp(suffix=".fps")
@@ -98,6 +100,12 @@ def fingerprint_search():
         args.extend(["-q", temp_query[1]])
     else:
         args.append("--NxN")
-    simsearch.main(args + ["-o", temp_out[1], "-t", str(threshold), temp_db[1]])
+    simsearch.main(
+        args + ["--memory", "-o", temp_out[1], "-t", str(threshold), temp_db[1]]
+    )
     sim_results = parse_sim_result(temp_out[1])
+    os.remove(temp_out[1])
+    os.remove(temp_db[1])
+    if fingerprint_query:
+        os.remove(temp_query[1])
     return {"query": sim_results[0], "match": sim_results[1], "score": sim_results[2]}
