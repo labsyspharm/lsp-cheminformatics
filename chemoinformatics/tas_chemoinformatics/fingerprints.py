@@ -33,7 +33,7 @@ def fingerprint_db():
         raise ValueError(
             "input_df must be less than 100.000 rows for performance reasons"
         )
-    print (input_df.head())
+    print(input_df.head())
     mol_func = identifier_mol_mapping[cmpd_encoding]
     temp_sdf = tempfile.NamedTemporaryFile(mode="wb", suffix=".sdf.gz", delete=False)
     temp_sdf_gz = gzip.GzipFile(fileobj=temp_sdf)
@@ -41,7 +41,7 @@ def fingerprint_db():
     skipped = list()
     for i, cmpd in enumerate(input_df.itertuples()):
         if i % 10000 == 0:
-            print ("{} done".format(i))
+            print("{} done".format(i))
         m = mol_func(str(cmpd.compound), sanitize=True)
         if m is None:
             skipped.append(cmpd.name)
@@ -51,7 +51,7 @@ def fingerprint_db():
     sdf_writer.close()
     temp_sdf_gz.close()
     temp_sdf.close()
-    print ("Wrote molecules to sdf", temp_sdf.name)
+    print("Wrote molecules to sdf", temp_sdf.name)
     temp_fps = tempfile.mkstemp(suffix=".fps")
     rdkit2fps.main(["-o", temp_fps[1], "--id-tag", "name", temp_sdf.name])
     os.remove(temp_sdf.name)

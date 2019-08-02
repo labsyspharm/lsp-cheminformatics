@@ -37,7 +37,7 @@ def canonicalize(compounds, id_used):
         can_smiles = Chem.MolToSmiles(mol)
         can_inchi = inchi.MolToInchi(mol)
         res.append((ms, can_smiles, can_inchi))
-    return (list(zip(*res)), skipped)
+    return (res, skipped)
 
 
 def tautomerize(compound, id_used, max_tautomers=10):
