@@ -22,11 +22,43 @@ mol_identifier_mapping = {
     "inchi_key": inchi.MolToInchiKey,
 }
 
+
+def canonicalize(compounds, id_used):
+    canonicalizer = tautomer.TautomerCanonicalizer()
+    mol_mapping = identifier_mol_mapping[id_used]
+    res = list()
+    skipped = list()
+    for ms in compounds:
+        mol = mol_mapping(ms)
+        if mol is None:
+            skipped.append(ms)
+            continue
+        can = canonicalizer(mol)
+        can_smiles = Chem.MolToSmiles(mol)
+        can_inchi = inchi.MolToInchi(mol)
+        res.append((ms, can_smiles, can_inchi))
+    return (list(zip(*res)), skipped)
+
+
+def tautomerize(compound, id_used, max_tautomers=10):
+    mol = identifier_mol_mapping[id_used](compound)
+    max_tautomers = request.form.get("max_tautomers", 10)
+    tauts = make_tautomers(mol, max_tautomers=max_tautomers)
+    return [
+        {
+            "smiles": Chem.MolToSmiles(t),
+            "inchi": inchi.MolToInchi(t),
+            "inchi_key": inchi.MolToInchiKey(t),
+        }
+        for t in tauts
+    ]
+
+
 app = Flask(__name__)
 
 
 @app.route("/query/tautomers", methods=["POST"])
-def process_tautomers():
+def tautomerize_route():
     ids_used = [k for k in identifier_mol_mapping.keys() if k in request.form]
     if not len(ids_used) == 1:
         raise ValueError(
@@ -40,8 +72,7 @@ def process_tautomers():
     mol_smiles = Chem.MolToSmiles(mol)
     mol_inchi = inchi.MolToInchi(mol)
     mol_inchi_key = inchi.MolToInchiKey(mol)
-    max_tautomers = request.form.get("max_tautomers", 10)
-    tauts = make_tautomers(mol, max_tautomers=max_tautomers)
+    tauts = tautomerize(mol_input, id_used, request.form.get("max_tautomers", 10))
     print(f"Found tautomers: {len(tauts)}")
     return {
         "request": {
@@ -49,19 +80,12 @@ def process_tautomers():
             "inchi": mol_inchi,
             "inchi_key": mol_inchi_key,
         },
-        "tautomers": [
-            {
-                "smiles": Chem.MolToSmiles(t),
-                "inchi": inchi.MolToInchi(t),
-                "inchi_key": inchi.MolToInchiKey(t),
-            }
-            for t in tauts
-        ],
+        "tautomers": tauts,
     }
 
 
 @app.route("/query/canonicalize", methods=["POST"])
-def canonicalize():
+def canonicalize_route():
     ids_used = [k for k in identifier_mol_mapping.keys() if k in request.json]
     if not len(ids_used) == 1:
         raise ValueError(
@@ -73,20 +97,7 @@ def canonicalize():
     if not isinstance(mol_input, list):
         mol_input = [mol_input]
     print(f"Requested canonical tautomer for {id_used} input")
-    canonicalizer = tautomer.TautomerCanonicalizer()
-    mol_mapping = identifier_mol_mapping[id_used]
-    res = list()
-    skipped = list()
-    for ms in mol_input:
-        mol = mol_mapping(ms)
-        if mol is None:
-            skipped.append(ms)
-            continue
-        can = canonicalizer(mol)
-        can_smiles = Chem.MolToSmiles(mol)
-        can_inchi = inchi.MolToInchi(mol)
-        res.append((ms, can_smiles, can_inchi))
-    res = list(zip(*res))
+    res, skipped = canonicalize(mol_input, id_used)
     return {
         "canonicalized": {"query": res[0], "smiles": res[1], "inchi": res[2]},
         "skipped": skipped,
