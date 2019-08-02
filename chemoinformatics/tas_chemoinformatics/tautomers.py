@@ -1,5 +1,5 @@
 from flask import Flask, request
-from rdkit import Chem
+from rdkit import Chem, RDLogger
 from rdkit.Chem import inchi
 from molvs import tautomer
 
@@ -28,7 +28,12 @@ def canonicalize(compounds, id_used):
     mol_mapping = identifier_mol_mapping[id_used]
     res = list()
     skipped = list()
-    for ms in compounds:
+    # Suppress pesky warning messages
+    lg = RDLogger.logger()
+    lg.setLevel(RDLogger.ERROR)
+    for i, ms in enumerate(compounds):
+        if i % 10000 == 0:
+            print(f"Completed {i}")
         mol = mol_mapping(ms)
         if mol is None:
             skipped.append(ms)
