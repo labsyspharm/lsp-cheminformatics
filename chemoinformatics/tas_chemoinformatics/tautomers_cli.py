@@ -9,7 +9,7 @@ def cli():
     pass
 
 
-@cli.command()
+@cli.command(help="Find canonical tautomer for input compounds.")
 @click.argument(
     "compound_file",
     type=click.File("r"),

@@ -32,13 +32,19 @@ def canonicalize(compounds, id_used):
     lg = RDLogger.logger()
     lg.setLevel(RDLogger.ERROR)
     for i, ms in enumerate(compounds):
-        if i % 10000 == 0:
+        if i % 1000 == 0:
             print(f"Completed {i}")
         mol = mol_mapping(ms)
         if mol is None:
+            print(f"Skipping {ms}: Could not parse compound string")
             skipped.append(ms)
             continue
-        can = canonicalizer(mol)
+        try:
+            can = canonicalizer(mol)
+        except Exception as e:
+            print(f"Skipping {ms}: Could not canonicalize\n{e}")
+            skipped.append(ms)
+            continue
         can_smiles = Chem.MolToSmiles(mol)
         can_inchi = inchi.MolToInchi(mol)
         res.append((ms, can_smiles, can_inchi))
