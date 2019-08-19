@@ -56,8 +56,13 @@ def canonicalize(compounds, id_used, standardize=False):
             print(f"Skipping {ms}: Could not canonicalize\n{e}")
             skipped.append(ms)
             continue
-        can_smiles = Chem.MolToSmiles(mol)
-        can_inchi = inchi.MolToInchi(mol)
+        if standardize:
+            try:
+                can = standardizer.standardize(can)
+            except Exception as e:
+                print(f"Can't standardize canonical tautomer for {ms}, using unstandardized version\n{e}")
+        can_smiles = Chem.MolToSmiles(can)
+        can_inchi = inchi.MolToInchi(can)
         res.append((ms, can_smiles, can_inchi))
     return (res, skipped)
 
