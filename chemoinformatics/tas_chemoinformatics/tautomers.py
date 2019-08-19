@@ -1,7 +1,7 @@
 from flask import Flask, request
 from rdkit import Chem, RDLogger
 from rdkit.Chem import inchi
-from molvs import tautomer
+from molvs import tautomer, standardize
 
 # Run using:
 # FLASK_APP=id_mapping/tautomer_server.py flask run -p 5000
@@ -23,9 +23,11 @@ mol_identifier_mapping = {
 }
 
 
-def canonicalize(compounds, id_used):
+def canonicalize(compounds, id_used, standardize=False):
     canonicalizer = tautomer.TautomerCanonicalizer()
     mol_mapping = identifier_mol_mapping[id_used]
+    if standardize:
+        standardizer = standardize.Standardizer(prefer_organic=True)
     res = list()
     skipped = list()
     # Suppress pesky warning messages
@@ -39,6 +41,15 @@ def canonicalize(compounds, id_used):
             print(f"Skipping {ms}: Could not parse compound string")
             skipped.append(ms)
             continue
+        if standardize:
+            try:
+                st = standardizer.standardize(mol)
+                st = standardizer.charge_parent(st, skip_standardize=True)
+                st = standardizer.isotope_parent(st, skip_standardize=True)
+                st = standardizer.standardize(st)
+                mol = st
+            except Exception as e:
+                print(f"Can't standardize {ms}, using input unstandardized\n{e}")
         try:
             can = canonicalizer(mol)
         except Exception as e:
@@ -117,21 +128,28 @@ def canonicalize_route():
 
 @app.route("/query/convert", methods=["POST"])
 def convert_ids():
-    format_in = request.form["in"]
+    format_in = request.json["in"]
     if format_in not in identifier_mol_mapping:
         raise ValueError(
             "input must be one of: ", repr(list(identifier_mol_mapping.keys))
         )
-    format_out = request.form["out"]
+    format_out = request.json["out"]
     if format_out not in mol_identifier_mapping:
         raise ValueError(
             "output must be one of: ", repr(list(mol_identifier_mapping.keys))
         )
-    id_in = request.form["value"]
-    print(f"Requested conversion of {format_in} {id_in} to {format_out}")
-    mol = identifier_mol_mapping[format_in](id_in)
-    mol_out = mol_identifier_mapping[format_out](mol)
-    return {
-        "request": {"in": format_in, "out": format_out, "value": id_in},
-        "converted": {format_out: mol_out},
-    }
+    ids_in = request.json["value"]
+    if not isinstance(ids_in, list):
+        ids_in = [ids_in]
+    ids_in = set(ids_in)
+    print(f"Requested conversion of {format_in} to {format_out}")
+    mols_out = dict()
+    for m in ids_in:
+        try:
+            mol = identifier_mol_mapping[format_in](m)
+            mol_out = mol_identifier_mapping[format_out](mol)
+            mols_out[m] = mol_out
+        except Exception as e:
+            print(f"Can't convert {m}: {str(e)}")
+            mols_out[m] = None
+    return mols_out
