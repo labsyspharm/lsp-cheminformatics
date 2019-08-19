@@ -1,7 +1,7 @@
 from flask import Flask, request
 from rdkit import Chem, RDLogger
 from rdkit.Chem import inchi
-from molvs import tautomer, standardize
+from molvs import tautomer, standardize as mol_standardize
 
 # Run using:
 # FLASK_APP=id_mapping/tautomer_server.py flask run -p 5000
@@ -27,7 +27,7 @@ def canonicalize(compounds, id_used, standardize=False):
     canonicalizer = tautomer.TautomerCanonicalizer()
     mol_mapping = identifier_mol_mapping[id_used]
     if standardize:
-        standardizer = standardize.Standardizer(prefer_organic=True)
+        standardizer = mol_standardize.Standardizer(prefer_organic=True)
     res = list()
     skipped = list()
     # Suppress pesky warning messages

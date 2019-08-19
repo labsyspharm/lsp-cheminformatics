@@ -33,11 +33,17 @@ def cli():
     type=click.Choice(["inchi", "smiles"]),
     help="Encoding format of compound strings",
 )
-def canonicalize(compound_file, output_file, compound_col, compound_encoding):
+@click.option(
+    "--standardize/--no-standardize",
+    default=True,
+    show_default=True,
+    help="Standardize input molecule before canonicalization: https://molvs.readthedocs.io/en/latest/guide/standardize.html",
+)
+def canonicalize(compound_file, output_file, compound_col, compound_encoding, standardize):
     input_df = pd.read_csv(compound_file)
     click.echo("Read input")
     canonical, skipped = tautomers.canonicalize(
-        input_df[compound_col], compound_encoding
+        input_df[compound_col], compound_encoding, standardize=standardize
     )
     click.echo("Finished canonicalization")
     out_df = pd.DataFrame(canonical, columns=["query", "smiles", "inchi"])
