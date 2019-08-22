@@ -310,7 +310,7 @@ cmpd_eq_classes_all <- bind_rows(
 ) %>%
   left_join(
     all_cmpds %>%
-      distinct(molregno, chembl_id, pref_name, max_phase, parent_molregno, active_molregno),
+      distinct(molregno, chembl_id, pref_name, max_phase, parent_molregno, active_molregno, n_assays),
     by = "chembl_id"
   )
 write_csv(
@@ -328,11 +328,54 @@ fingerprints_eq_classes <- cmpd_eq_classes_all %>%
     by = "chembl_id"
   ) %>%
   distinct(fingerprint, eq_class)
+
+# FPS Header
 write_lines(fingerprint_fps_combined[1:6], "eq_classes_fingerprints.fps")
+# Content
 write_tsv(
   fingerprints_eq_classes,
   "eq_classes_fingerprints.fps",
   col_names = FALSE,
   append = TRUE,
   quote_escape = "none"
+)
+
+# Find canonical member of equivalence class
+# 1. If present, choose member annotated as parent by Chembl
+# 2. Choose member with highest clinical phase
+# 3. Choose member with annotated pref_name
+# 4. Choose member with highest n_assays
+# 5. Choose member with lowest chembl_id
+cmpd_eq_classes_canonical <- cmpd_eq_classes_all %>%
+  mutate(
+    parent_present = if_else(parent_molregno == molregno, NA_integer_, as.integer(parent_molregno)),
+    molregno = as.integer(molregno),
+    n_assays = as.integer(n_assays)
+  ) %>%
+  as.data.table() %>%
+  .[
+    ,
+    `:=`(
+      annotated_as_parent = as.integer(molregno) %in% parent_present,
+      annotated_pref_name = !is.na(pref_name),
+      annotated_assays = replace_na(n_assays, 0)
+    ),
+    keyby = eq_class
+  ] %>%
+  .[
+    order(
+      eq_class,
+      -annotated_as_parent,
+      -max_phase,
+      -annotated_pref_name,
+      -annotated_assays,
+      -chembl_id
+    ),
+    head(.SD, 1),
+    keyby = eq_class
+  ]
+write_csv(
+  cmpd_eq_classes_canonical %>%
+    select(eq_class, chembl_id, molregno, pref_name, max_phase, n_assays),
+  "canonical_equivalence_classes.csv.gz"
 )
