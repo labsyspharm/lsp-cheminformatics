@@ -121,10 +121,12 @@ def canonicalize_route():
         )
     id_used = ids_used[0]
     mol_input = request.json[id_used]
+    standardize = bool(request.json.get("standardize", False))
     if not isinstance(mol_input, list):
         mol_input = [mol_input]
     print(f"Requested canonical tautomer for {id_used} input")
-    res, skipped = canonicalize(mol_input, id_used)
+    res, skipped = canonicalize(mol_input, id_used, standardize=standardize)
+    res = list(zip(*res))
     return {
         "canonicalized": {"query": res[0], "smiles": res[1], "inchi": res[2]},
         "skipped": skipped,
