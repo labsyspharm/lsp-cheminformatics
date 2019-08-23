@@ -27,8 +27,16 @@ scan_fingerprint_matches <- function(db, query = NULL, threshold = 0.95) {
     fingerprint_db = upload_file(db),
     threshold = threshold
   )
-  if (!is.null(query))
+  if (!is.null(query)) {
+    if (!is.character(query)) {
+      # assume is df of inchi compounds, convert to fps fingerprint first
+      fps <- get_fingerprints(query)
+      fps_temp <- tempfile(fileext = ".fps")
+      writeBin(fps$fps_file, fps_temp)
+      query <- fps_temp
+    }
     request_body$fingerprint_query <- upload_file(query)
+  }
 
   fingerprint_response <- POST(
     "http://127.0.0.1:8000/fingerprints/simsearch",
@@ -57,4 +65,18 @@ convert_id <- function(id, input_id = "smiles", output_id = "inchi") {
     accept_json()
   )
   content(res, as = "parsed", encoding = "UTF-8", type = "application/json", simplifyVector = TRUE)
+}
+
+canonicalize <- function(value, key, standardize = TRUE) {
+  res <- POST(
+    "http://127.0.0.1:5000/query/canonicalize",
+    body = c(
+      as.list(set_names(list(value), key)),
+      list("standardize" = standardize)
+    ),
+    encode = "json",
+    accept_json()
+  )
+  content(res, as = "text", encoding = "UTF-8") %>%
+    jsonlite::fromJSON()
 }
