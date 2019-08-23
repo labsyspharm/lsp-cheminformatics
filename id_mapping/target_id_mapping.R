@@ -2,8 +2,24 @@ library(tidyverse)
 library(vroom)
 library(data.table)
 library(biomaRt)
+library(bit64)
 
-dir_chembl <- file.path("~", "repo", "tas_vectors", "chembl24_1")
+dir_chembl <- file.path("~", "repo", "tas_vectors", "chembl25")
+
+##################################################################################################################T
+# connect to chembl v. 25  ------------
+##################################################################################################################T
+
+library(RPostgres)
+## in terminal: ssh -L 5433:pgsql96.orchestra:5432 nm192@transfer.rc.hms.harvard.edu
+# first portnumber can change
+# loads the PostgreSQL driver
+drv <- dbDriver("Postgres")
+# creates a connection to the postgres database
+# note that "con" will be used later in each connection to the database
+con <- dbConnect(drv, dbname = "chembl_25",
+                 host = "localhost", port = 5433,
+                 user = "chembl_public")
 
 ##################################################################################################################T
 # create target conversion table  ------------
@@ -12,7 +28,7 @@ dir.create(dir_chembl)
 setwd(dir_chembl)
 list.files()
 download.file(
-  "ftp://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/releases/chembl_24_1/chembl_uniprot_mapping.txt",
+  "ftp://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/releases/chembl_25/chembl_uniprot_mapping.txt",
   "chembl_uniprot_mapping.txt"
 )
 
@@ -79,56 +95,46 @@ map_uniprot_chembl %>%
   filter(is.na(gene_id)) %>%
   dplyr::count(organism)
 # # A tibble: 3 x 2
-# organism                n
-# <chr>               <int>
-# 1 Homo sapiens         18
-# 2 Mus musculus        147
-# 3 Rattus norvegicus   604
+# organism              n
+# <chr>             <int>
+#   1 Homo sapiens         19
+# 2 Mus musculus        150
+# 3 Rattus norvegicus   621
 
-# Only 18 human uniprot IDs left without a matching Entrez ID, good enough...
+# Only 19 human uniprot IDs left without a matching Entrez ID, good enough...
 
 map_uniprot_chembl %>%
   drop_na(gene_id) %>%
   dplyr::count(gene_id) %>%
   dplyr::count(n)
 # # A tibble: 15 x 2
-#       n    nn
-#    <int> <int>
-# 1     1  3860
-# 2     2   658
-# 3     3   192
-# 4     4    97
-# 5     5    35
-# 6     6    23
-# 7     7    16
-# 8     8     3
-# 9     9     5
-# 10   10     5
-# 11   11     3
-# 12   12     1
-# 13   13     1
-# 14   14     1
-# 15   16     1
+# n    nn
+# <int> <int>
+#   1     1  4051
+# 2     2   685
+# 3     3   211
+# 4     4   100
+# 5     5    41
+# 6     6    22
+# 7     7    17
+# 8     8     4
+# 9     9     6
+# 10    10     7
+# 11    11     2
+# 12    12     3
+# 13    13     1
+# 14    16     1
+# 15    17     1
 
 # step 4 --> match with gene_info
 
-## go to https://www.ncbi.nlm.nih.gov/gene
-## click Download/FTP
-## select gene_info table
-## copy table to dir_chembl24_1
+download.file("ftp://ftp.ncbi.nih.gov/gene/DATA/gene_info.gz", "gene_info_20190821.gz")
 
-setwd(dir_chembl)
-download.file("ftp://ftp.ncbi.nih.gov/gene/DATA/gene_info.gz", "gene_info_20190725.gz")
-
-#gene_info<-read.delim("gene_info_20190226")
-#gene_info<-gene_info[c("X.tax_id","GeneID","Symbol","Synonyms","description","Full_name_from_nomenclature_authority")]
-#dim(gene_info)
-#write.csv(gene_info,file="gene_info_20190226_compact.csv",row.names = F)
 
 # Using vroom here instead of loading the entire csv because it is downright massive
 # and vroom is much faster
 gene_info <- vroom(
-  "gene_info_20190725.gz",
+  "gene_info_20190821.gz",
   delim = "\t",
   col_names = c(
     "tax_id", "gene_id", "ncbi_symbol", "locus_tag", "synonyms", "db_xrefs", "chromosome",
