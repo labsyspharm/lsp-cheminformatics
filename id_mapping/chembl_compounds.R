@@ -58,10 +58,9 @@ all_synonyms <- dbGetQuery(
   as.data.table() %>%
   .[
     ,
-    .(synonyms = paste(synonyms, collapse = "; ")),
+    .(synonyms = list(synonyms)),
     keyby = molregno
-  ] %>%
-  as_tibble()
+  ]
 
 all_cmpds <- all_cmpds %>%
   left_join(
@@ -69,7 +68,21 @@ all_cmpds <- all_cmpds %>%
     by = "molregno"
   )
 
-write_csv(all_cmpds, "all_compounds_chembl25.csv.gz")
+write_rds(
+  all_cmpds,
+  "all_compounds_chembl25.rds",
+  compress = "gz"
+)
+
+all_cmpds <- all_cmpds %>%
+  mutate(
+    synonyms = map_chr(synonyms, paste, collapse = "; ")
+  )
+
+write_csv(
+  all_cmpds,
+  "all_compounds_chembl25.csv.gz"
+)
 # all_cmpds <- read_csv(
 #   "all_compounds_chembl25.csv.gz",
 #   col_types = "icciiiccciiic"
