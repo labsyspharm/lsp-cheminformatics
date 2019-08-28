@@ -3,235 +3,255 @@ library(httr)
 library(RPostgres)
 library(bit64)
 library(furrr)
+library(data.table)
 
 source("chemoinformatics_funcs.R")
 # source("../id_mapping/chemoinformatics_funcs.R")
 
 dir_chembl <- file.path("~", "repo", "tas_vectors", "chembl25")
 
-## in terminal: ssh -L 5433:pgsql96.orchestra:5432 nm192@transfer.rc.hms.harvard.edu
-# first portnumber can change
-# loads the PostgreSQL driver
-drv <- dbDriver("Postgres")
-# creates a connection to the postgres database
-# note that "con" will be used later in each connection to the database
-con <- dbConnect(drv, dbname = "chembl_25",
-                 host = "localhost", port = 5433,
-                 user = "chembl_public")
-
-
-# Retrieving list of LINCS compounds -------------------------------------------
+# Calculate similarity between all compounds -----------------------------------
 ###############################################################################T
 
-# Attempt to get hms lincs ID map automagically from the HMS LINCS reagent tracker
-# Set username and password in ~/.Renviron
-# ECOMMONS_USERNAME=xxx
-# ECOMMONS_PASSWORD=xxx
+cmpd_fingerprints <- read_rds("all_compounds_fingerprints.rds")
 
-login_token <- POST(
-  "https://reagenttracker.hms.harvard.edu/api/v0/login",
-  body = list(
-    username = Sys.getenv("ECOMMONS_USERNAME"),
-    password = Sys.getenv("ECOMMONS_PASSWORD")
-  ),
-  encode = "json"
-)
-
-rt_response = GET(
-  "https://reagenttracker.hms.harvard.edu/api/v0/search?q=",
-  accept_json()
-)
-
-rt_json <- rt_response %>%
-  content("text") %>%
-  jsonlite::fromJSON()
-
-rt_df <- rt_json$canonicals %>%
-  as_tibble() %>%
-  filter(type == "small_molecule", name != "DEPRECATED") %>%
-  select(hms_id = lincs_id, name, alternate_names, smiles, inchi, inchi_key, chembl_id)
-
-# Convert smiles to inchi, where no inchi is provided
-rt_df_inchi <- rt_df %>%
-  mutate(
-    inchi = map2_chr(
-      inchi, smiles,
-      # Only convert if inchi is unknown and smiles is known
-      # otherwise use known inchi
-      ~if (is.na(.x) && !is.na(.y)) convert_id(.y, "smiles", "inchi")[[.y]] else .x
-    )
-  ) %>%
-  drop_na(inchi) %>%
-  # Some inchis have newline characters at the end of line, remove them
-  mutate(inchi = trimws(inchi))
-
-
-# Canonicalize LINCS compounds -------------------------------------------------
-###############################################################################T
-
-# Disregard the annotated Chembl ID in the HMS LINCS database because it may
-# point to the salt compound and we always want the free base ID
-# Only use annotated LINCS Chembl ID if we can't find it using the inchi_key
-
-# We have to first generate the canonical tautomer for each compound
 plan(multisession(workers = 8))
-hms_lincs_compounds_canonical_inchis <- rt_df_inchi %>%
-  pull("inchi") %>%
-  split((seq(length(.)) - 1) %/% 100) %>%
-  future_map(canonicalize, key = "inchi", standardize = TRUE)
+cmdp_similarity <- cmpd_fingerprints %>%
+  mutate(
+    similarity_res = future_map(
+      fingerprint_res,
+      function(fp) {
+        fp_out <- tempfile(fileext = ".fps")
+        writeBin(fp$fps_file, fp_out)
+        scan_fingerprint_matches(
+          "all_compounds_fingerprints.fps",
+          query = fp_out,
+          threshold = 0.9999
+        )
+      },
+      .progress = TRUE
+    )
+  )
 
-hms_lincs_compounds_canonical_inchis_df <- hms_lincs_compounds_canonical_inchis %>%
-  map(chuck, "canonicalized") %>%
+write_rds(cmdp_similarity, "all_compounds_similarity_raw.rds")
+
+similarity_df <- cmdp_similarity$similarity_res %>%
   map(as_tibble) %>%
   bind_rows() %>%
-  distinct(inchi = query, canonical_inchi = inchi, canonical_smiles = smiles)
+  mutate(score = as.double(score))
 
-hms_lincs_compounds_canonical <- rt_df_inchi %>%
-  left_join(
-    hms_lincs_compounds_canonical_inchis_df,
-    by = "inchi"
-  )
+write_csv(similarity_df, "all_compounds_similarity.csv.gz")
 
-# Match LINCS compounds to Chembl equivalence classes --------------------------
+
+# Defining equivalence classes -------------------------------------------------
 ###############################################################################T
 
-hms_lincs_compounds_matches <- scan_fingerprint_matches(
-  "eq_classes_fingerprints.fps",
-  hms_lincs_compounds_canonical %>%
-    select(compound = canonical_inchi, name = hms_id)
-) %>%
-  as_tibble()
+library(igraph)
 
-hms_lincs_compounds_matches_cleaned <- hms_lincs_compounds_matches %>%
-  filter(score > 0.9999) %>%
-  distinct(match, query)
+# Making graph of compounds where edges represent identical compounds
+# Extracting the "components" of the graph, isolated subgraphs, they
+# represent equivalence clusters of identical compounds
 
-hms_lincs_compounds_matches_cleaned %>%
-  count(query) %>%
-  count(n)
-# # A tibble: 1 x 2
-# n    nn
-# <int> <int>
-#   1     1  1887
+cmpds_identical_graph <- similarity_df %>%
+  mutate(
+    id1 = ifelse(match > query, query, match),
+    id2 = ifelse(match > query, match, query)
+  ) %>%
+  distinct(id1, id2) %>%
+  as.matrix() %>%
+  graph_from_edgelist(directed = FALSE)
 
-chembl_canonical <- read_csv("chembl_compounds/canonical/all_canonical.csv.gz")
+cmpd_eq_classes <- components(cmpds_identical_graph) %>%
+  pluck("membership") %>%
+  enframe(value = "eq_class", name = "id") %>%
+  mutate(eq_class = as.integer(eq_class))
 
-hms_lincs_compounds_mapped <- hms_lincs_compounds_canonical %>%
-  left_join(
-    hms_lincs_compounds_matches_cleaned %>%
-      transmute(
-        eq_class = as.integer(match),
-        hms_id = query
-      ) %>%
-      distinct(),
-    by = "hms_id"
-  )
-
-
-# Make a list of combined unique canonical equivalence classes -----------------
+# Sanity check equivalence classes ---------------------------------------------
 ###############################################################################T
 
-# When possible ground compounds to the canonical entry in Chembl, if not Chembl
-# entry is available usue LINCS entry
+# Checking if the parent_molregno annotation in Chembl is comparable to what we
+# find using our canonicalization followed by fingerprint matching approach.
 
+chembl_cmpds <- read_rds("chembl_compounds_raw.rds")
 
-hms_lincs_compounds_mapped %>%
-  count(hms_id) %>%
-  count(n)
-# # A tibble: 3 x 2
-# n    nn
-# <int> <int>
-#   1     1  1833
-# 2     2    27
-# 3    94     1
+chembl_cmpds_with_parent <- chembl_cmpds %>%
+  filter(molregno != parent_molregno) %>%
+  left_join(
+    chembl_cmpds %>%
+      select(molregno, parent_chembl_id = chembl_id, parent_standard_inchi = standard_inchi),
+    by = c("parent_molregno" = "molregno")
+  ) %>%
+  select(molregno, chembl_id, parent_chembl_id, standard_inchi, parent_standard_inchi) %>%
+  left_join(
+    cmpd_eq_classes,
+    by = c("chembl_id" = "id")
+  ) %>%
+  left_join(
+    cmpd_eq_classes %>%
+      rename(parent_eq_class = eq_class),
+    by = c("chembl_id" = "id")
+  )
 
-hms_lincs_compounds_mapped %>%
-  count(eq_class) %>%
-  count(n)
-# # A tibble: 3 x 2
-# n    nn
-# <int> <int>
-#   1     1  1833
-# 2     2    27
-# 3    94     1
-# Some compounds in the HMS LINCS reagent tracker are enantiomer-specific,
-# multiple entries point to a single equivalence class
+chembl_cmpds_with_parent %>%
+  filter(eq_class != parent_eq_class)
+# Nothing, so we found all of the parent molecule relationships using our strategy
+# of canonicalization
 
-# Checking self-matches of LINCS compounds that don't match any Chembl compounds,
-# necessary to find
-hms_lincs_compounds_fps <- get_fingerprints(
-  hms_lincs_compounds_mapped %>%
-    filter(is.na(eq_class)) %>%
-    distinct(name = hms_id, compound = canonical_inchi)
-)
-hms_lincs_compounds_fps_file <- tempfile(fileext = ".fps")
-writeBin(hms_lincs_compounds_fps$fps_file, hms_lincs_compounds_fps_file)
+# Adding equivalence class for all compounds -----------------------------------
+###############################################################################T
 
-hms_lincs_compounds_equivalence <- scan_fingerprint_matches(
-  hms_lincs_compounds_fps_file
+hmsl_cmpds <- read_rds("hmsl_compounds_raw.rds")
+
+# Add eq_class for compounds for which no inchi is known or whose inchi is not parseable
+all_eq_class <- bind_rows(
+  chembl_cmpds %>%
+    select(id = chembl_id) %>%
+    mutate(source = "chembl"),
+  hmsl_cmpds %>%
+    select(id = hms_id) %>%
+    mutate(source = "hmsl")
 ) %>%
-  as_tibble() %>%
-  filter(score > 0.9999)
-
-dim(hms_lincs_compounds_equivalence)
-# [1] 0 3
-# None of the LSP exclusive comounds are identical, don't have to deal with this case
-
-
-cmpd_eq_classes_canonical_chembl <- read_csv(
-  "canonical_equivalence_classes.csv.gz",
-  col_types = "icicciiiicilli"
-)
-
-hms_lincs_compounds_mapped_canonical <- hms_lincs_compounds_mapped %>%
-  arrange(eq_class) %>%
+  left_join(cmpd_eq_classes, by = "id") %>%
   mutate(
     eq_class = if_else(
       is.na(eq_class),
-      cumsum(is.na(eq_class)) + max(cmpd_eq_classes_canonical_chembl$eq_class) + 1L,
+      cumsum(is.na(eq_class)) + max(eq_class, na.rm = TRUE),
       eq_class
     )
   )
 
-chembl_cmpds <- read_rds(
-  "all_compounds_chembl25.rds"
-)
 
-chembl_eq <- read_csv(
-  "equivalence_classes.csv.gz",
-  col_types = "ciicciiiic"
-)
+# Finding canonical member of equivalence class --------------------------------
+###############################################################################T
 
-cmpd_names <- bind_rows(
-  chembl_eq %>%
-    select(eq_class, chembl_id) %>%
-    left_join(
-      chembl_cmpds %>%
-        select(chembl_id, pref_name, synonyms),
-      by = "chembl_id"
-    ) %>%
-    select(-chembl_id) %>%
-    mutate(pref = 1L),
-  hms_lincs_compounds_mapped_canonical %>%
-    select(eq_class, pref_name = name, synonyms = alternate_names) %>%
-    mutate(pref = 2L)
-) %>%
-  arrange(eq_class, pref) %>%
-  group_by(eq_class) %>%
-  summarize(
-    alt_names = list(union(reduce(pref_name, union, .init = c()), reduce(synonyms, union, .init = c()))),
-    pref_name = pref_name[[1]]
-  ) %>%
-  ungroup()
-
-cmpd_eq_classes_canonical_all <- cmpd_eq_classes_canonical_chembl %>%
+# Find canonical member of equivalence class
+# 1. If present, choose member annotated as parent by Chembl
+# 2. Choose member with highest clinical phase
+# 3. Choose member with annotated pref_name
+# 4. Choose member with highest n_assays
+# 5. Choose member with lowest id (chembl or HMS)
+eq_classes_canonical <- all_eq_class %>%
   left_join(
-    hms_lincs_compounds_mapped %>%
-      distinct(hms_id, eq_class),
+    bind_rows(
+      chembl_cmpds %>%
+        select(id = chembl_id, pref_name, max_phase, molregno, parent_molregno, n_assays) %>%
+        mutate_if(is.integer64, as.integer),
+      hmsl_cmpds %>%
+        select(id = hms_id, pref_name = name, n_assays = n_batches),
+    ),
+    by = "id"
+  ) %>%
+  mutate(
+    parent_present = if_else(parent_molregno == molregno, NA_integer_, parent_molregno)
+  ) %>%
+  as.data.table() %>%
+  .[
+    ,
+    `:=`(
+      annotated_as_parent = as.integer(molregno) %in% parent_present,
+      annotated_pref_name = !is.na(pref_name),
+      annotated_assays = replace_na(n_assays, 0),
+      id_number = as.integer(str_extract(id, "\\d+"))
+    ),
+    keyby = eq_class
+  ] %>%
+  .[
+    order(
+      eq_class,
+      -annotated_as_parent,
+      -max_phase,
+      -annotated_pref_name,
+      -annotated_assays,
+      -id_number
+    ),
+    head(.SD, 1),
+    keyby = .(eq_class, source)
+  ]
+
+# Finding canonical name and inchi ---------------------------------------------
+###############################################################################T
+
+canonical_names <- all_eq_class %>%
+  as.data.table() %>%
+  .[
+    rbindlist(list(
+      chembl_cmpds %>%
+        select(id = chembl_id, pref_name, alt_names = synonyms),
+      hmsl_cmpds %>%
+        select(id = hms_id, pref_name = name, alt_names = alternate_names)
+    )),
+    on = "id"
+  ] %>%
+  .[
+    order(eq_class, source)
+  ] %>%
+  .[
+    ,
+    .(
+      pref_name = pref_name[[1]],
+      alt_names = list(reduce(alt_names, union))
+    ),
+    keyby = eq_class
+  ]
+
+cmpd_inchis_raw <- read_csv("all_compounds_canonical.csv.gz", col_types = "cccc")
+
+canonical_inchis <- all_eq_class %>%
+  as.data.table() %>%
+  .[
+    cmpd_inchis_raw %>%
+      distinct(id, inchi) %>%
+      as.data.table(),
+    on = "id"
+  ] %>%
+  .[
+    order(eq_class, source)
+  ] %>%
+  .[
+    ,
+    .(
+      inchi = inchi[[1]]
+    ),
+    keyby = "eq_class"
+  ]
+
+canonical_table <- eq_classes_canonical %>%
+  select(eq_class, source, id) %>%
+  mutate(source = paste0(source, "_id")) %>%
+  spread(source, id) %>%
+  left_join(
+    canonical_names,
     by = "eq_class"
   ) %>%
-  select(lspci_id = eq_class, chembl_id, inchi = canonical_inchi, hms_id)
+  left_join(
+    canonical_inchis,
+    by = "eq_class"
+  ) %>%
+  as_tibble() %>%
+  rename(
+    lspci_id = eq_class,
+    hms_id = hmsl_id
+  ) %>%
+  # Remove empty lists and replace with NULL
+  mutate(
+    alt_names = map(
+      alt_names,
+      ~if(length(.x) == 0) NULL else .x
+    )
+  )
 
+write_rds(canonical_table, "canonical_table.rds", compress = "gz")
 
+# Making non-canonical compound table ------------------------------------------
+###############################################################################T
 
+alt_table <- all_eq_class %>%
+  filter(!(id %in% eq_classes_canonical$id)) %>%
+  left_join(
+    cmpd_inchis_raw %>%
+      distinct(id, inchi),
+    by = "id"
+  )
+
+write_csv(alt_table, "alternate_table.csv.gz")
 

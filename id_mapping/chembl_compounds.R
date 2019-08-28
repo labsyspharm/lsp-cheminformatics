@@ -60,7 +60,8 @@ all_synonyms <- dbGetQuery(
     ,
     .(synonyms = list(synonyms)),
     keyby = molregno
-  ]
+  ] %>%
+  as_tibble()
 
 all_cmpds <- all_cmpds %>%
   left_join(
@@ -70,28 +71,13 @@ all_cmpds <- all_cmpds %>%
 
 write_rds(
   all_cmpds,
-  "all_compounds_chembl25.rds",
+  "chembl_compounds_raw.rds",
   compress = "gz"
 )
 
-all_cmpds <- all_cmpds %>%
-  mutate(
-    synonyms = map_chr(synonyms, paste, collapse = "; ")
-  )
-
-write_csv(
-  all_cmpds,
-  "all_compounds_chembl25.csv.gz"
-)
-# all_cmpds <- read_csv(
-#   "all_compounds_chembl25.csv.gz",
-#   col_types = "icciiiccciiic"
-# )
-# Again, molregno, parent_molregno and active_molregno are integer64...
-
 unique_cmpds <- all_cmpds %>%
-  distinct(compound = standard_inchi, name = chembl_id) %>%
-  mutate(compound = trimws(compound)) %>%
+  distinct(inchi = standard_inchi, chembl_id) %>%
+  mutate(inchi = trimws(inchi)) %>%
   drop_na()
 
 # Find canonical tautomer ------------------------------------------------------
@@ -109,6 +95,7 @@ local_temp_wd <- tempdir()
 
 set.seed(42)
 cmpd_split <- unique_cmpds %>%
+  rename(compound = inchi, name = chembl_id) %>%
   slice(sample(nrow(.))) %>%
   split((seq(nrow(.)) - 1) %/% 10000) %>%
   enframe("index", "compounds") %>%
@@ -221,217 +208,5 @@ canonical_all <- canonical %>%
     inchi
   )
 
-write_csv(canonical_all, file.path(canonical_path, "all_canonical.csv.gz"))
+write_csv(canonical_all, file.path("chembl_compounds_canonical.csv.gz"))
 # canonical_all <- read_csv(file.path(canonical_path, "all_canonical.csv.gz"))
-
-# Create molecular fingerprints ------------------------------------------------
-###############################################################################T
-
-plan(multisession, workers = 8)
-cmpd_fingerprints <- canonical_all %>%
-  select(name = chembl_id, compound = inchi) %>%
-  split((seq(nrow(.)) - 1) %/% 10000) %>%
-  enframe("index", "compounds") %>%
-  mutate(
-    fingerprint_res = future_map(
-      compounds, get_fingerprints, .progress = TRUE
-    )
-  )
-write_rds(cmpd_fingerprints, "chembl_fingerprints.rds")
-# cmpd_fingerprints <- read_rds("chembl_fingerprints.rds")
-
-fingerprint_fps <- cmpd_fingerprints$fingerprint_res %>%
-  map("fps_file") %>%
-  map(rawToChar) %>%
-  # split into lines
-  map(stringi::stri_split_lines1)
-
-# Have to remove header of all fps files except first one
-
-fingerprint_fps_combined <- c(
-  fingerprint_fps[[1]],
-  fingerprint_fps[-1] %>%
-    # discard lines starting with #
-    map(~.x[!str_starts(.x, fixed("#"))]) %>%
-    {do.call(c, .)}
-)
-
-writeLines(fingerprint_fps_combined, "all_compounds_fingerprints.fps")
-
-# Calculate similarity between Chembl compounds --------------------------------
-###############################################################################T
-
-
-cmdp_similarity <- cmpd_fingerprints %>%
-  mutate(
-    similarity_res = future_map(
-      fingerprint_res,
-      function(fp) {
-        fp_out <- tempfile(fileext = ".fps")
-        writeBin(fp$fps_file, fp_out)
-        scan_fingerprint_matches(
-          "all_compounds_fingerprints.fps",
-          query = fp_out,
-          threshold = 0.99
-        )
-      },
-      .progress = TRUE
-    )
-  )
-
-write_rds(cmdp_similarity, "all_compounds_similarity_raw.rds")
-# cmdp_similarity <- read_rds("all_compounds_similarity_raw.rds")
-
-similarity_df <- cmdp_similarity$similarity_res %>%
-  map(as_tibble) %>%
-  bind_rows() %>%
-  mutate(score = as.double(score))
-
-write_csv(similarity_df, "all_compounds_similarity.csv.gz")
-
-cmpds_identical <- similarity_df %>%
-  filter(match != query, score > 0.999999) %>%
-  select(-score)
-
-
-
-
-# Defining equivalence classes -------------------------------------------------
-###############################################################################T
-
-
-library(igraph)
-
-# Making graph of compounds where edges represent identical compounds
-# Extracting the "components" of the graph, isolated subgraphs, they
-# represent equivalence clusters of identical compounds
-
-cmpds_identical_graph <- cmpds_identical %>%
-  mutate(
-    chembl_id1 = ifelse(match > query, query, match),
-    chembl_id2 = ifelse(match > query, match, query)
-  ) %>%
-  distinct(chembl_id1, chembl_id2) %>%
-  as.matrix() %>%
-  graph_from_edgelist(directed = FALSE)
-
-cmpd_eq_classes <- components(cmpds_identical_graph) %>%
-  pluck("membership") %>%
-  enframe(value = "eq_class", name = "chembl_id") %>%
-  mutate(eq_class = as.integer(eq_class))
-
-all_cmpds_with_parent <- all_cmpds %>%
-  filter(molregno != parent_molregno) %>%
-  left_join(
-    all_cmpds %>%
-      select(molregno, parent_chembl_id = chembl_id, parent_standard_inchi = standard_inchi),
-    by = c("parent_molregno" = "molregno")
-  ) %>%
-  select(molregno, chembl_id, parent_chembl_id, standard_inchi, parent_standard_inchi) %>%
-  left_join(
-    cmpd_eq_classes,
-    by = "chembl_id"
-  ) %>%
-  left_join(
-    cmpd_eq_classes %>%
-      rename(parent_eq_class = eq_class),
-    by = "chembl_id"
-  )
-
-all_cmpds_with_parent %>%
-  filter(eq_class != parent_eq_class)
-# Nothing, so we found all of the parent molecule relationships using our strategy
-# of canonicalization
-
-cmpd_eq_classes_solo <- unique_cmpds %>%
-  distinct(chembl_id = name) %>%
-  filter(!(chembl_id %in% cmpd_eq_classes$chembl_id)) %>%
-  mutate(
-    eq_class = seq(max(cmpd_eq_classes$eq_class) + 1, max(cmpd_eq_classes$eq_class) + n())
-  )
-
-cmpd_eq_classes_all <- bind_rows(
-    cmpd_eq_classes,
-    cmpd_eq_classes_solo
-) %>%
-  left_join(
-    all_cmpds %>%
-      distinct(molregno, chembl_id, chembl_inchi = standard_inchi, pref_name, max_phase, parent_molregno, active_molregno, n_assays),
-    by = "chembl_id"
-  ) %>%
-  left_join(
-    canonical_all %>%
-      distinct(chembl_id, canonical_inchi = inchi),
-    by = "chembl_id"
-  )
-write_csv(
-  cmpd_eq_classes_all,
-  "equivalence_classes.csv.gz"
-)
-# cmpd_eq_classes_all <- read_csv("equivalence_classes.csv.gz", col_types = "ciicciiiic")
-
-fingerprints_tbl <- fingerprint_fps_combined %>%
-  read_tsv(col_names = c("fingerprint", "chembl_id"), skip = 6)
-
-fingerprints_eq_classes <- cmpd_eq_classes_all %>%
-  select(chembl_id, eq_class) %>%
-  inner_join(
-    fingerprints_tbl,
-    by = "chembl_id"
-  ) %>%
-  distinct(fingerprint, eq_class)
-
-# FPS Header
-write_lines(fingerprint_fps_combined[1:6], "eq_classes_fingerprints.fps")
-# Content
-write_tsv(
-  fingerprints_eq_classes,
-  "eq_classes_fingerprints.fps",
-  col_names = FALSE,
-  append = TRUE,
-  quote_escape = "none"
-)
-
-# Finding canonical member of equivalence class --------------------------------
-###############################################################################T
-
-# Find canonical member of equivalence class
-# 1. If present, choose member annotated as parent by Chembl
-# 2. Choose member with highest clinical phase
-# 3. Choose member with annotated pref_name
-# 4. Choose member with highest n_assays
-# 5. Choose member with lowest chembl_id
-cmpd_eq_classes_canonical <- cmpd_eq_classes_all %>%
-  mutate(
-    parent_present = if_else(parent_molregno == molregno, NA_integer_, as.integer(parent_molregno)),
-    molregno = as.integer(molregno),
-    n_assays = as.integer(n_assays)
-  ) %>%
-  as.data.table() %>%
-  .[
-    ,
-    `:=`(
-      annotated_as_parent = as.integer(molregno) %in% parent_present,
-      annotated_pref_name = !is.na(pref_name),
-      annotated_assays = replace_na(n_assays, 0)
-    ),
-    keyby = eq_class
-  ] %>%
-  .[
-    order(
-      eq_class,
-      -annotated_as_parent,
-      -max_phase,
-      -annotated_pref_name,
-      -annotated_assays,
-      -chembl_id
-    ),
-    head(.SD, 1),
-    keyby = eq_class
-  ]
-write_csv(
-  cmpd_eq_classes_canonical,
-  "canonical_equivalence_classes.csv.gz"
-)
-
-
