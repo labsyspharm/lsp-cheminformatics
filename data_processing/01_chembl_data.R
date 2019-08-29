@@ -1,77 +1,53 @@
-# get infor for smallmoleculesuite 2.0 from chembl
-
-
 library(tidyverse)
 library(vroom)
 library(data.table)
 library(biomaRt)
 library(bit64)
-# options(scipen = 99999999)
-
-##################################################################################################################T
-# connect to chembl v. 24_1  ------------
-##################################################################################################################T
-
 library(RPostgres)
+library(here)
+library(synapser)
+library(synExtra)
+
+synLogin()
+syn <- synDownloader(here("tempdl"))
+
+release <- "chembl_v25"
+dir_release <- here(release)
+syn_release <- synFindEntityId(release, "syn18457321")
+
+# connect to chembl v. 24_1  ---------------------------------------------------
+###############################################################################T
+
+
 ## in terminal: ssh -L 5433:pgsql96.orchestra:5432 nm192@transfer.rc.hms.harvard.edu
 # first portnumber can change
 # loads the PostgreSQL driver
 drv <- dbDriver("Postgres")
 # creates a connection to the postgres database
 # note that "con" will be used later in each connection to the database
-con <- dbConnect(drv, dbname = "chembl_24",
-                 host = "localhost", port = 5433,
-                 user = "chembl_public")
-
-##################################################################################################################T
-# set directories  ------------
-##################################################################################################################T
-dir_chembl <- file.path("~", "repo", "tas_vectors", "chembl24_1")
+con <- dbConnect(drv, dbname = "chembl_25",
+                 host = "localhost", port = 5432,
+                 user = "chug")
 
 # Get target gene mapping
-map_chembl_tid_gene_id <- read_csv(
-  "map_targets_chemblID_genID_uniprot_tid.csv.gz",
-  col_types = "ccccciciiccccc"
-)
+map_chembl_tid_gene_id <- syn("syn20693721") %>%
+  read_csv(col_types = "ccccciciiccccc")
 
 
-################################################################################################################################################################################################T
-# get biochemical data all compounds ------------
-################################################################################################################################################################################################T
-setwd(dir_chembl)
-all_cmpds <- read_csv(
-  "all_compounds_chembl24_1_parent_mapped.csv.gz",
-  col_types = "icciciicci"
-)
-
-biochem_test<-dbGetQuery(con, paste0("select *
-                        from activities as ACT
-                        left join assays as A
-                        on ACT.assay_id = A.assay_id
-                        where ACT.molregno in (",toString(unique(all_cmpds$molregno)),")
-                        and ACT.standard_value is not null
-                        and A.assay_type = 'B'
-                        and A.relationship_type in ('D', 'H', 'M', 'U')
-                        and ACT.standard_units = 'nM'
-                        and ACT.standard_type in ('IC50','Ki','EC50','Kd','IC90','CC50','ID50','AC50','Inhibition','MIC','Potency','Activity','ED50')
-                        and A.assay_cell_type is NULL
-                        and A.bao_format not in ('BAO_0000221', 'BAO_0000219','BAO_0000218') LIMIT 100"))
-
+# get biochemical data all compounds -------------------------------------------
+###############################################################################T
 
 BAO_format <- dbGetQuery(con, paste0("select *
                         from bioassay_ontology
-                                   "))#where bao_id in ('",paste(biochem_test$bao_format%>%unique,collapse="','"),"')
+                                   "))
+#where bao_id in ('",paste(biochem_test$bao_format%>%unique,collapse="','"),"')
 View(BAO_format)
 
 
-
-
-
-
-activities_biochem_1<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_id, ACT.molregno,ACT.standard_relation, ACT.standard_type,
+activities_biochem_1 <- dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_id, ACT.molregno,ACT.standard_relation, ACT.standard_type,
                                              ACT.standard_value,ACT.standard_units,
                                              A.tid,
-                                             A.description,A.chembl_id as chembl_id_assay, BAO.label, DOCS.chembl_id as chembl_id_doc
+                                             A.description,A.chembl_id as chembl_id_assay, BAO.label, DOCS.chembl_id as chembl_id_doc, DOCS.pubmed_id as pubmed_id
                                              from activities as ACT
                                              left join assays as A
                                              on ACT.assay_id = A.assay_id
@@ -79,8 +55,7 @@ activities_biochem_1<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, 
                                              on DOCS.doc_id=A.doc_id
                                              left join bioassay_ontology as BAO
                                              on A.bao_format=BAO.bao_id
-                                             where ACT.molregno in (",toString(unique(all_cmpds$molregno)),")
-                                             and ACT.standard_value is not null
+                                             WHERE ACT.standard_value is not null
                                              and A.assay_type = 'B'
                                              and A.relationship_type in ('D', 'H', 'M', 'U')
                                              and ACT.standard_units = 'nM'
@@ -95,7 +70,7 @@ View(activities_biochem_1)
 activities_biochem_2<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_id, ACT.molregno,ACT.standard_relation, ACT.standard_type,
                                              ACT.standard_value,ACT.standard_units,
                                              A.tid,
-                                             A.description,A.chembl_id as chembl_id_assay, BAO.label, DOCS.chembl_id as chembl_id_doc
+                                             A.description,A.chembl_id as chembl_id_assay, BAO.label, DOCS.chembl_id as chembl_id_doc, DOCS.pubmed_id as pubmed_id
                                              from activities as ACT
                                              left join assays as A
                                              on ACT.assay_id = A.assay_id
@@ -103,22 +78,17 @@ activities_biochem_2<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, 
                                              on DOCS.doc_id=A.doc_id
                                              left join bioassay_ontology as BAO
                                              on A.bao_format=BAO.bao_id
-                                             where ACT.molregno in (",toString(unique(all_cmpds$molregno)),")
-                                             and ACT.standard_value is not null
+                                             WHERE ACT.standard_value is not null
                                              and A.assay_type = 'F'
                                              and A.description like '%Navigating the Kinome%'
                                              "))
 
-activities_biochem<-list(
-  activities_biochem_1,
-  activities_biochem_2
+activities_biochem <- data.table::rbindlist(
+  list(
+    activities_biochem_1,
+    activities_biochem_2
+  )
 )
-activities_biochem <- data.table::rbindlist(activities_biochem)
-
-map_chemblID_geneID_formerge <- map_chemblID_geneID %>%
-  dplyr::select(chembl_id, symbol, gene_id, uniprot_id, tax_id, tid, target_type, pref_name)%>%
-  rename(chembl_id_target = chembl_id)%>%
-  unique()
 
 activities_biochem_geneid <- activities_biochem %>%
   left_join(
@@ -129,18 +99,15 @@ activities_biochem_geneid <- activities_biochem %>%
   ) %>%
   as_tibble()
 
-write_csv(activities_biochem_geneid, "biochemicaldata_allcmpds_chembl24_1.csv.gz")
+write_csv(
+  activities_biochem_geneid,
+  file.path(dir_release, "chembl_biochemicaldata.csv.gz")
+)
 
+# get phenotypic data all compounds --------------------------------------------
+###############################################################################T
 
-################################################################################################################################################################################################T
-# get phenotypic data all compounds ------------
-################################################################################################################################################################################################T
-standard_units <- dbGetQuery(con, paste0("
-                                       select distinct(standard_units)
-                                       from activities as ACT
-                                       where ACT.molregno in (",toString(all_cmpds$molregno),")"))
-
-standard_units_ok<-c('M','mol/L','nM','nmol/L',
+standard_units_ok <- c('M','mol/L','nM','nmol/L',
                      'nmol.L-1','pM','pmol/L','pmol/ml','um',
                      'uM','umol/L','umol/ml','umol/uL')
 
@@ -158,7 +125,9 @@ units_per_assay<-dbGetQuery(con, paste0("select assay_id, count(distinct(standar
                                         where standard_units in ('",paste(standard_units_ok, collapse="','"),"')
                                         group by assay_id
                                         "))
-assays_qualified<-units_per_assay%>%filter(count_units==1)%>%filter(count_molregno>2)
+assays_qualified <- units_per_assay %>%
+  filter(count_units == 1) %>%
+  filter(count_molregno > 2)
 
 activities_1<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_id, ACT.molregno,ACT.standard_relation, ACT.standard_type,
                                              ACT.standard_value,ACT.standard_units,
@@ -176,6 +145,15 @@ activities_1<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_
                                      and A.assay_id in (",toString(assays_qualified$assay_id),")
                                      and ACT.standard_units in ('",paste(standard_units_ok,collapse="','"),"')
                                      "))
+#
+
+# x <- activities_1 %>%
+#   as.data.table() %>%
+#   .[
+#     ,
+#     if(length(unique(standard_units)) > 1) .SD,
+#     keyby = assay_id
+#   ]
 
 # BAO list is a list of assays that are curated by Nienke to be interpretable
 # https://bioportal.bioontology.org
@@ -209,13 +187,13 @@ pheno_activities<-pheno_activities%>%drop_na(log10_value)%>%filter(standard_unit
 
 dim(pheno_activities)
 
-setwd(dir_chembl)
-write_csv(pheno_activities, "phenotypic_assaydata_allcmpds_chemblv24_1.csv.gz")
+write_csv(
+  pheno_activities,
+  file.path(dir_release, "chembl_phenotypic_assaydata.csv.gz")
+)
 
-
-##################################################################################################################################################################################################T
-# get clinical &  info ------------
-##################################################################################################################################################################################################T
+# get clinical &  info ---------------------------------------------------------
+###############################################################################T
 
 approval_info<-dbGetQuery(con, paste0("select pref_name, chembl_id as chembl_id_compound, MOLDICT.molregno, max_phase, first_approval, oral, parenteral,
                               topical, black_box_warning,first_in_class, prodrug, indication_class, withdrawn_flag, withdrawn_year, withdrawn_country,
@@ -226,64 +204,27 @@ approval_info<-dbGetQuery(con, paste0("select pref_name, chembl_id as chembl_id_
                               where max_phase >0"))
 View(approval_info)
 
-setwd(dir_chembl)
-write_csv(approval_info, "approval_info_phase1to4cmpds_ChemblV24_1.csv.gz")
+write_csv(
+  approval_info,
+  file.path(dir_release, "chembl_approval_info_phase1to4cmpds.csv.gz")
+)
 
-# dbGetQuery(con, paste0("select * from drug_indication as DRUGIND
-#                         left join indication_refs as INDREF on DRUGIND.drugind_id=INDREF.drugind_id"))%>%View
+# Store to synapse -------------------------------------------------------------
+###############################################################################T
 
+fetch_chembl_activity <- Activity(
+  name = "Fetch ChEMBL acitivy data",
+  used = "syn20693721",
+  executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/data_processing/01_chembl_data.R"
+)
 
-##################################################################################################################T
-# get crossref info ------------
-##################################################################################################################T
-## goal: get temp_id to crossref doc
-#step1: import crossref docs
-
-
-# columns in Xref table: chembl_id|external_id|external_id_type|external_url|chembl_url
-
-
-
-
-
-
-
-
-
-
-
-# Unichem_sources
-
-
-## has to be done via unichem
-cross_reference_table
-
-dbGetQuery(con, paste0("select *
-                       from compound_records as COMPREC
-                       left join docs on COMPREC.src_id=DOCS.src_id
-                       where COMPREC.src_id = 20
-                       limit 10"))%>%View()
-
-#rec.src_id,rec.src_compound_id, rec.cidx, rec.compound_name, rec.compound_key,
-
-
-# molregno, chembl_id, inchi,synonyms
-
-
-#molecule_dictionary:
-#molecule_synonyms: synonyms
-#compound_records: SRC_ID, src_compound_id, CIDX, compound_name, compound_key
-#molecule_hierarchy: parent_molregno, active_molregno
-
-##################################################################################################################T
-# get table w/ all 'same compound, different salt' IDs  ------------
-##################################################################################################################T
-#molecule hierarchy: parent_molregno, active_molregno
-
-
-##################################################################################################################T
-# give temp ID to each set   ------------
-##################################################################################################################T
-
-
-
+list(
+  file.path(dir_release, "chembl_biochemicaldata.csv.gz"),
+  file.path(dir_release, "chembl_phenotypic_assaydata.csv.gz"),
+  file.path(dir_release, "chembl_approval_info_phase1to4cmpds.csv.gz")
+) %>%
+  map(
+    . %>%
+      File(parent = syn_release) %>%
+      synStore(activity = fetch_chembl_activity)
+  )
