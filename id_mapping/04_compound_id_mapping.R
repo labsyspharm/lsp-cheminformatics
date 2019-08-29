@@ -50,7 +50,6 @@ similarity_df <- cmdp_similarity$similarity_res %>%
 
 write_csv(similarity_df, file.path(dir_release, "all_compounds_similarity.csv.gz"))
 
-
 # Defining equivalence classes -------------------------------------------------
 ###############################################################################T
 
@@ -130,6 +129,10 @@ all_eq_class <- bind_rows(
     )
   )
 
+write_csv(
+  all_eq_class,
+  file.path(dir_release, "all_compounds_equivalence_classes.csv.gz")
+)
 
 # Finding canonical member of equivalence class --------------------------------
 ###############################################################################T
@@ -285,11 +288,11 @@ list(
   file.path(dir_release, "all_compounds_similarity_raw.rds"),
   file.path(dir_release, "all_compounds_similarity.csv.gz"),
   file.path(dir_release, "canonical_table.rds"),
-  file.path(dir_release, "alternate_table.csv.gz")
+  file.path(dir_release, "alternate_table.csv.gz"),
+  file.path(dir_release, "all_compounds_equivalence_classes.csv.gz")
 ) %>%
   map(
     . %>%
       File(parent = syn_release) %>%
       synStore(activity = cmpd_wrangling_activity)
   )
-
