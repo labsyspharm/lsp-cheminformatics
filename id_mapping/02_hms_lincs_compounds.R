@@ -5,10 +5,18 @@ library(RPostgres)
 library(bit64)
 library(jsonlite)
 library(data.table)
+library(here)
+library(synapser)
+library(synExtra)
 
-source("chemoinformatics_funcs.R")
-# source("../id_mapping/chemoinformatics_funcs.R")
+source(here("id_mapping", "chemoinformatics_funcs.R"))
 
+synLogin()
+syn <- synDownloader(here("tempdl"))
+
+release <- "chembl_v25"
+dir_release <- here(release)
+syn_release <- synFindEntityId(release, "syn18457321")
 
 # Retrieving list of LINCS compounds -------------------------------------------
 ###############################################################################T
@@ -31,12 +39,6 @@ rt_response = GET(
   "https://reagenttracker.hms.harvard.edu/api/v0/search?q=",
   accept_json()
 )
-
-
-x <- rt_response %>%
-  content("text", encoding = "UTF-8") %>%
-  fromJSON()%>%
-  pluck("canonicals")
 
 rt_df <- rt_response %>%
   content("text", encoding = "UTF-8") %>%
@@ -70,8 +72,9 @@ rt_df_inchi <- rt_df %>%
 
 write_rds(
   rt_df_inchi,
-  "hmsl_compounds_raw.rds"
+  file.path(dir_release, "hmsl_compounds_raw.rds")
 )
+# rt_df_inchi <- read_rds(file.path(dir_release, "hmsl_compounds_raw.rds"))
 
 # Canonicalize LINCS compounds -------------------------------------------------
 ###############################################################################T
@@ -108,6 +111,24 @@ hms_lincs_compounds_canonical <- rt_df_inchi %>%
 
 write_csv(
   hms_lincs_compounds_canonical,
-  "hmsl_compounds_canonical.csv.gz"
+  file.path(dir_release, "hmsl_compounds_canonical.csv.gz")
+)
+# hms_lincs_compounds_canonical <- read_csv(file.path(dir_release, "hmsl_compounds_canonical.csv.gz"))
+
+# Store to synapse -------------------------------------------------------------
+###############################################################################T
+
+fetch_hmsl_activity <- Activity(
+  name = "Fetch HITS compound data and canonicalize",
+  executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/id_mapping/02_hms_lincs_compounds.R"
 )
 
+list(
+  file.path(dir_release, "hmsl_compounds_canonical.csv.gz"),
+  file.path(dir_release, "hmsl_compounds_raw.rds")
+) %>%
+  map(
+    . %>%
+      File(parent = syn_release) %>%
+      synStore(activity = fetch_hmsl_activity)
+  )

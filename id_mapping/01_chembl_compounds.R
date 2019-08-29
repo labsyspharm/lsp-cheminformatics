@@ -5,11 +5,18 @@ library(RPostgres)
 library(bit64)
 library(jsonlite)
 library(data.table)
+library(here)
+library(synapser)
+library(synExtra)
 
-source("chemoinformatics_funcs.R")
-# source("../id_mapping/chemoinformatics_funcs.R")
+source(here("id_mapping", "chemoinformatics_funcs.R"))
 
-dir_chembl <- file.path("~", "repo", "tas_vectors", "chembl25")
+synLogin()
+syn <- synDownloader(here("tempdl"))
+
+release <- "chembl_v25"
+dir_release <- here(release)
+syn_release <- synFindEntityId(release, "syn18457321")
 
 ## in terminal: ssh -L 5433:pgsql96.orchestra:5432 nm192@transfer.rc.hms.harvard.edu
 # first portnumber can change
@@ -24,15 +31,6 @@ con <- dbConnect(drv, dbname = "chembl_25",
 # Fetch Chembl compound data ---------------------------------------------------
 ###############################################################################T
 
-# Chembl has salts sometimes separate from free bases, parent_molregno points to
-# free base
-# Trying to reconcile internal LINCS database, which only has a single ID for
-# each compound, regardless of salt, with Chembl
-
-dir.create(dir_chembl, showWarnings = FALSE)
-setwd(dir_chembl)
-
-# step 1--> get basic info on molecules
 all_cmpds <- dbGetQuery(
   con,
   "SELECT DISTINCT dict.molregno, dict.pref_name, dict.chembl_id, dict.max_phase,
@@ -71,7 +69,7 @@ all_cmpds <- all_cmpds %>%
 
 write_rds(
   all_cmpds,
-  "chembl_compounds_raw.rds",
+  file.path(dir_release, "chembl_compounds_raw.rds"),
   compress = "gz"
 )
 
@@ -208,5 +206,23 @@ canonical_all <- canonical %>%
     inchi
   )
 
-write_csv(canonical_all, file.path("chembl_compounds_canonical.csv.gz"))
-# canonical_all <- read_csv(file.path(canonical_path, "all_canonical.csv.gz"))
+write_csv(canonical_all, file.path(dir_release, "chembl_compounds_canonical.csv.gz"))
+# canonical_all <- read_csv(file.path(dir_release, "chembl_compounds_canonical.csv.gz"))
+
+# Store to synapse -------------------------------------------------------------
+###############################################################################T
+
+fetch_chembl_activity <- Activity(
+  name = "Fetch ChEMBL compound data and canonicalize",
+  executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/id_mapping/01_chembl_compounds.R"
+)
+
+list(
+  file.path(dir_release, "chembl_compounds_canonical.csv.gz"),
+  file.path(dir_release, "chembl_compounds_raw.rds")
+) %>%
+  map(
+    . %>%
+      File(parent = syn_release) %>%
+      synStore(activity = fetch_chembl_activity)
+  )

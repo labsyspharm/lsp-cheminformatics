@@ -5,25 +5,36 @@ library(RPostgres)
 library(bit64)
 library(jsonlite)
 library(data.table)
+library(here)
+library(synapser)
+library(synExtra)
 
-source("chemoinformatics_funcs.R")
-# source("../id_mapping/chemoinformatics_funcs.R")
+source(here("id_mapping", "chemoinformatics_funcs.R"))
+
+synLogin()
+syn <- synDownloader(here("tempdl"))
+
+release <- "chembl_v25"
+dir_release <- here(release)
+syn_release <- synFindEntityId(release, "syn18457321")
+
 
 # Load compound data -----------------------------------------------------------
 ###############################################################################T
 
 compound_sources <- tribble(
-  ~source_name, ~canonical_file,
-  "chembl", "chembl_compounds_canonical.csv.gz",
-  "hmsl", "hmsl_compounds_canonical.csv.gz"
+  ~source_name, ~synapse_id,
+  "chembl", "syn20692439",
+  "hmsl", "syn20692442"
 )
 
 compounds_canonical <- compound_sources %>%
   mutate(
     canonical = map(
-      canonical_file,
-      read_csv,
-      col_types = "ccc"
+      synapse_id,
+      . %>%
+        syn() %>%
+        read_csv(col_types = "ccc")
     ) %>%
       map(
         rename_all,
@@ -31,12 +42,12 @@ compounds_canonical <- compound_sources %>%
         "chembl_id|hms_id", "id"
       )
   ) %>%
-  select(-canonical_file) %>%
+  select(-synapse_id) %>%
   unnest(canonical)
 
 write_csv(
   compounds_canonical,
-  "all_compounds_canonical.csv.gz"
+  file.path(dir_release, "all_compounds_canonical.csv.gz")
 )
 
 
@@ -53,8 +64,8 @@ cmpd_fingerprints <- compounds_canonical %>%
       compounds, get_fingerprints, .progress = TRUE
     )
   )
-write_rds(cmpd_fingerprints, "all_compounds_fingerprints.rds")
-# cmpd_fingerprints <- read_rds("chembl_fingerprints.rds")
+write_rds(cmpd_fingerprints, file.path(dir_release, "all_compounds_fingerprints.rds"))
+# cmpd_fingerprints <- read_rds(file.path(dir_release, "all_compounds_fingerprints.rds"))
 
 fingerprint_fps <- cmpd_fingerprints$fingerprint_res %>%
   map("fps_file") %>%
@@ -72,4 +83,27 @@ fingerprint_fps_combined <- c(
     {do.call(c, .)}
 )
 
-writeLines(fingerprint_fps_combined, "all_compounds_fingerprints.fps")
+writeLines(fingerprint_fps_combined, file.path(dir_release, "all_compounds_fingerprints.fps"))
+
+# Store to synapse -------------------------------------------------------------
+###############################################################################T
+
+fingerprint_activity <- Activity(
+  name = "Calculate molecular fingerprints",
+  used = c(
+    "syn20692439",
+    "syn20692442"
+  ),
+  executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/id_mapping/03_fingerprints.R"
+)
+
+list(
+  file.path(dir_release, "all_compounds_fingerprints.rds"),
+  file.path(dir_release, "all_compounds_fingerprints.fps"),
+  file.path(dir_release, "all_compounds_canonical.csv.gz")
+) %>%
+  map(
+    . %>%
+      File(parent = syn_release) %>%
+      synStore(activity = fingerprint_activity)
+  )

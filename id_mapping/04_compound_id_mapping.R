@@ -4,16 +4,24 @@ library(RPostgres)
 library(bit64)
 library(furrr)
 library(data.table)
+library(here)
+library(synapser)
+library(synExtra)
 
-source("chemoinformatics_funcs.R")
-# source("../id_mapping/chemoinformatics_funcs.R")
+source(here("id_mapping", "chemoinformatics_funcs.R"))
 
-dir_chembl <- file.path("~", "repo", "tas_vectors", "chembl25")
+synLogin()
+syn <- synDownloader(here("tempdl"))
+
+release <- "chembl_v25"
+dir_release <- here(release)
+syn_release <- synFindEntityId(release, "syn18457321")
 
 # Calculate similarity between all compounds -----------------------------------
 ###############################################################################T
 
-cmpd_fingerprints <- read_rds("all_compounds_fingerprints.rds")
+cmpd_fingerprints <- syn("syn20692501") %>%
+  read_rds()
 
 plan(multisession(workers = 8))
 cmdp_similarity <- cmpd_fingerprints %>%
@@ -24,7 +32,7 @@ cmdp_similarity <- cmpd_fingerprints %>%
         fp_out <- tempfile(fileext = ".fps")
         writeBin(fp$fps_file, fp_out)
         scan_fingerprint_matches(
-          "all_compounds_fingerprints.fps",
+          syn("syn20692510"),
           query = fp_out,
           threshold = 0.9999
         )
@@ -33,14 +41,14 @@ cmdp_similarity <- cmpd_fingerprints %>%
     )
   )
 
-write_rds(cmdp_similarity, "all_compounds_similarity_raw.rds")
+write_rds(cmdp_similarity, file.path(dir_release, "all_compounds_similarity_raw.rds"))
 
 similarity_df <- cmdp_similarity$similarity_res %>%
   map(as_tibble) %>%
   bind_rows() %>%
   mutate(score = as.double(score))
 
-write_csv(similarity_df, "all_compounds_similarity.csv.gz")
+write_csv(similarity_df, file.path(dir_release, "all_compounds_similarity.csv.gz"))
 
 
 # Defining equivalence classes -------------------------------------------------
@@ -72,7 +80,8 @@ cmpd_eq_classes <- components(cmpds_identical_graph) %>%
 # Checking if the parent_molregno annotation in Chembl is comparable to what we
 # find using our canonicalization followed by fingerprint matching approach.
 
-chembl_cmpds <- read_rds("chembl_compounds_raw.rds")
+chembl_cmpds <- syn("syn20692440") %>%
+  read_rds()
 
 chembl_cmpds_with_parent <- chembl_cmpds %>%
   filter(molregno != parent_molregno) %>%
@@ -100,7 +109,8 @@ chembl_cmpds_with_parent %>%
 # Adding equivalence class for all compounds -----------------------------------
 ###############################################################################T
 
-hmsl_cmpds <- read_rds("hmsl_compounds_raw.rds")
+hmsl_cmpds <- syn("syn20692443") %>%
+  read_rds()
 
 # Add eq_class for compounds for which no inchi is known or whose inchi is not parseable
 all_eq_class <- bind_rows(
@@ -194,7 +204,8 @@ canonical_names <- all_eq_class %>%
     keyby = eq_class
   ]
 
-cmpd_inchis_raw <- read_csv("all_compounds_canonical.csv.gz", col_types = "cccc")
+cmpd_inchis_raw <- syn("syn20692514") %>%
+  read_csv(col_types = "cccc")
 
 canonical_inchis <- all_eq_class %>%
   as.data.table() %>%
@@ -240,7 +251,7 @@ canonical_table <- eq_classes_canonical %>%
     )
   )
 
-write_rds(canonical_table, "canonical_table.rds", compress = "gz")
+write_rds(canonical_table, file.path(dir_release, "canonical_table.rds"), compress = "gz")
 
 # Making non-canonical compound table ------------------------------------------
 ###############################################################################T
@@ -253,5 +264,32 @@ alt_table <- all_eq_class %>%
     by = "id"
   )
 
-write_csv(alt_table, "alternate_table.csv.gz")
+write_csv(alt_table, file.path(dir_release, "alternate_table.csv.gz"))
+
+# Store to synapse -------------------------------------------------------------
+###############################################################################T
+
+cmpd_wrangling_activity <- Activity(
+  name = "Map and wrangle compound IDs",
+  used = c(
+    "syn20692501",
+    "syn20692510",
+    "syn20692440",
+    "syn20692443",
+    "syn20692514"
+  ),
+  executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/id_mapping/04_compound_id_mapping.R"
+)
+
+list(
+  file.path(dir_release, "all_compounds_similarity_raw.rds"),
+  file.path(dir_release, "all_compounds_similarity.csv.gz"),
+  file.path(dir_release, "canonical_table.rds"),
+  file.path(dir_release, "alternate_table.csv.gz")
+) %>%
+  map(
+    . %>%
+      File(parent = syn_release) %>%
+      synStore(activity = cmpd_wrangling_activity)
+  )
 
