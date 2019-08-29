@@ -44,7 +44,7 @@ BAO_format <- dbGetQuery(con, paste0("select *
 View(BAO_format)
 
 
-activities_biochem_1 <- dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_id, ACT.molregno,ACT.standard_relation, ACT.standard_type,
+activities_biochem_1 <- dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_id, ACT.molregno, MOL_DICT.chembl_id as chembl_id_compound, ACT.standard_relation, ACT.standard_type,
                                              ACT.standard_value,ACT.standard_units,
                                              A.tid,
                                              A.description,A.chembl_id as chembl_id_assay, BAO.label, DOCS.chembl_id as chembl_id_doc, DOCS.pubmed_id as pubmed_id
@@ -55,6 +55,8 @@ activities_biochem_1 <- dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id
                                              on DOCS.doc_id=A.doc_id
                                              left join bioassay_ontology as BAO
                                              on A.bao_format=BAO.bao_id
+                                             LEFT JOIN molecule_dictionary AS MOL_DICT
+                                             on ACT.molregno = MOL_DICT.molregno
                                              WHERE ACT.standard_value is not null
                                              and A.assay_type = 'B'
                                              and A.relationship_type in ('D', 'H', 'M', 'U')
@@ -67,7 +69,7 @@ View(activities_biochem_1)
 
 # Data from "Navigating the Kinome" paper is annotated using F (functional) assay type
 # whereas most other data B (binding)
-activities_biochem_2<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_id, ACT.molregno,ACT.standard_relation, ACT.standard_type,
+activities_biochem_2<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_id, ACT.molregno, MOL_DICT.chembl_id as chembl_id_compound, ACT.standard_relation, ACT.standard_type,
                                              ACT.standard_value,ACT.standard_units,
                                              A.tid,
                                              A.description,A.chembl_id as chembl_id_assay, BAO.label, DOCS.chembl_id as chembl_id_doc, DOCS.pubmed_id as pubmed_id
@@ -78,6 +80,8 @@ activities_biochem_2<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, 
                                              on DOCS.doc_id=A.doc_id
                                              left join bioassay_ontology as BAO
                                              on A.bao_format=BAO.bao_id
+                                             LEFT JOIN molecule_dictionary AS MOL_DICT
+                                             on ACT.molregno = MOL_DICT.molregno
                                              WHERE ACT.standard_value is not null
                                              and A.assay_type = 'F'
                                              and A.description like '%Navigating the Kinome%'
@@ -129,7 +133,7 @@ assays_qualified <- units_per_assay %>%
   filter(count_units == 1) %>%
   filter(count_molregno > 2)
 
-activities_1<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_id, ACT.molregno,ACT.standard_relation, ACT.standard_type,
+activities_1<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_id, ACT.molregno, MOL_DICT.chembl_id as chembl_id_compound, ACT.standard_relation, ACT.standard_type,
                                              ACT.standard_value,ACT.standard_units,
                                              A.tid,
                                              A.description,A.chembl_id as chembl_id_assay, BAO.label, DOCS.chembl_id as chembl_id_doc
@@ -140,6 +144,8 @@ activities_1<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_
                                              on DOCS.doc_id=A.doc_id
                                              left join bioassay_ontology as BAO
                                              on A.bao_format=BAO.bao_id
+                                             LEFT JOIN molecule_dictionary AS MOL_DICT
+                                             on ACT.molregno = MOL_DICT.molregno
                                      where ACT.standard_value is not null
                                      and A.relationship_type like 'N'
                                      and A.assay_id in (",toString(assays_qualified$assay_id),")
