@@ -3,14 +3,22 @@ library(vroom)
 library(data.table)
 library(biomaRt)
 library(bit64)
-
-dir_chembl <- file.path("~", "repo", "tas_vectors", "chembl25")
-
-##################################################################################################################T
-# connect to chembl v. 25  ------------
-##################################################################################################################T
-
+library(here)
+library(synapser)
+library(synExtra)
 library(RPostgres)
+
+synLogin()
+syn <- synDownloader(here("tempdl"))
+
+release <- "chembl_v25"
+dir_release <- here(release)
+syn_release <- synFindEntityId(release, "syn18457321")
+
+# connect to chembl ------------------------------------------------------------
+###############################################################################T
+
+
 ## in terminal: ssh -L 5433:pgsql96.orchestra:5432 nm192@transfer.rc.hms.harvard.edu
 # first portnumber can change
 # loads the PostgreSQL driver
@@ -18,18 +26,15 @@ drv <- dbDriver("Postgres")
 # creates a connection to the postgres database
 # note that "con" will be used later in each connection to the database
 con <- dbConnect(drv, dbname = "chembl_25",
-                 host = "localhost", port = 5433,
-                 user = "chembl_public")
+                 host = "localhost", port = 5432,
+                 user = "chug")
 
-##################################################################################################################T
-# create target conversion table  ------------
-##################################################################################################################T
-dir.create(dir_chembl)
-setwd(dir_chembl)
-list.files()
+# create target conversion table -----------------------------------------------
+###############################################################################T
+
 download.file(
   "ftp://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/releases/chembl_25/chembl_uniprot_mapping.txt",
-  "chembl_uniprot_mapping.txt"
+  file.path(dir_release, "chembl_uniprot_mapping.txt")
 )
 
 # step 1 --> import chembl generated file & convert to gene_ID
@@ -51,7 +56,7 @@ chembl_info_all_targets <- dbGetQuery(
   filter(organism %in% names(organism_biomart_mapping))
 
 map_uniprot_chembl <- read_tsv(
-  "chembl_uniprot_mapping.txt", skip = 1,
+  file.path(dir_release, "chembl_uniprot_mapping.txt"), skip = 1,
   col_names = c("uniprot_id", "chembl_id", "protein_name", "target_type")
 ) %>%
   inner_join(chembl_info_all_targets, by = "chembl_id")
@@ -128,13 +133,16 @@ map_uniprot_chembl %>%
 
 # step 4 --> match with gene_info
 
-download.file("ftp://ftp.ncbi.nih.gov/gene/DATA/gene_info.gz", "gene_info_20190821.gz")
+download.file(
+  "ftp://ftp.ncbi.nih.gov/gene/DATA/gene_info.gz",
+  file.path(dir_release, "gene_info_20190829.gz")
+)
 
 
 # Using vroom here instead of loading the entire csv because it is downright massive
 # and vroom is much faster
 gene_info <- vroom(
-  "gene_info_20190821.gz",
+  file.path(dir_release, "gene_info_20190829.gz"),
   delim = "\t",
   col_names = c(
     "tax_id", "gene_id", "ncbi_symbol", "locus_tag", "synonyms", "db_xrefs", "chromosome",
@@ -154,5 +162,21 @@ map_chemblID_geneID <- map_uniprot_chembl %>%
   ) %>%
   distinct()
 
-write_csv(map_chemblID_geneID, "map_targets_chemblID_genID_uniprot_tid.csv.gz")
+write_csv(map_chemblID_geneID, file.path(dir_release, "target_map.csv.gz"))
 
+# Store to synapse -------------------------------------------------------------
+###############################################################################T
+
+target_wrangling_activity <- Activity(
+  name = "Map and wrangle drug target data",
+  executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/id_mapping/06_target_id_mapping.R"
+)
+
+list(
+  file.path(dir_release, "target_map.csv.gz")
+) %>%
+  map(
+    . %>%
+      File(parent = syn_release) %>%
+      synStore(activity = target_wrangling_activity)
+  )
