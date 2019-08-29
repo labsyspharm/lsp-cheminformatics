@@ -1,109 +1,79 @@
-#this script prepares allbiochem data for BAFP clustering
-
 library(tidyverse)
 library(httr)
 library(data.table)
+library(here)
+library(synapser)
+library(synExtra)
 
-#############################################################################################################T
-# set directories & import files----------
-#############################################################################################################T
-dir_chembl <- "~/repo/tas_vectors/chembl24_1"
-dir_klaegerdata<-"~/repo/tas_vectors"
-dir_doseresponse_inhouse<-"~/repo/tas_vectors"
-dir_cheminformatics_files<-"~/repo/tas_vectors/chembl24_1"
-dir_hmsl_data = "~/repo/tas_vectors"
+synLogin()
+syn <- synDownloader(here("tempdl"))
 
-setwd(dir_chembl)
-hms_lincs_chembl_mapping <- read_csv(
-  "hms_lincs_chembl_mapping.csv.gz",
-  col_types = "ccccc"
-)
+release <- "chembl_v25"
+dir_release <- here(release)
+syn_release <- synFindEntityId(release, "syn18457321")
 
-all_cmpds <- read_csv(
-  "all_compounds_chembl24_1_parent_mapped.csv.gz",
-  col_types = "icciciiccic"
-)
+# set directories & import files -----------------------------------------------
+###############################################################################T
 
-setwd(dir_klaegerdata)
-klaegerdata <- read_csv(
-  "Klaeger_reformatted.csv",
-  col_types = "ccicdcccccc"
-)
-klaeger_neat <- klaegerdata %>%
-  filter(chembl_id != "")
+all_cmpds_eq_classes <- syn("syn20693885") %>%
+  read_csv(col_types = "cci")
 
-setwd(dir_chembl)
-#fragment_table<-read.csv("BAFP_chemblID_fragmentID_20190707.csv")
-biochem_alldata <- read_csv(
-  "biochemicaldata_allcmpds_chembl24_1.csv.gz",
-  col_types = "iiiiccdciccccccicicc"
-)
+biochem_alldata <- syn("syn20693825") %>%
+  read_csv(col_types = "iiiicccdcicccccccicicc")
 
 biochem_neat <- biochem_alldata %>%
   rename(pref_name_target = pref_name) %>%
   filter(tax_id == 9606, !is.na(gene_id)) %>%
   left_join(
-    all_cmpds %>%
-      distinct(molregno, pref_name_cmpd = pref_name, chembl_id),
-    by = "molregno"
+    all_cmpds_eq_classes %>%
+      select(id, eq_class),
+    by = c("chembl_id_compound" = "id")
   )
 
-setwd(dir_doseresponse_inhouse)
-doseresponse_inhouse <- read_csv(
-  "all_doseresponse_summaryfile_20190417_vF.csv",
-  col_types = "idcccccicccc"
-)
+doseresponse_inhouse <- syn("syn20692433") %>%
+  read_csv(col_types = "idcccccicccc")
+
 doseresponse_inhouse_neat <- doseresponse_inhouse %>%
   mutate(hms_id = paste0("HMSL", hms_id)) %>%
   left_join(
-    hms_lincs_chembl_mapping %>%
-      distinct(hms_id, chembl_id),
-    by = "hms_id"
-  ) %>%
-  left_join(
-    all_cmpds %>%
-      distinct(molregno,  pref_name_cmpd = pref_name, chembl_id),
-    by = "chembl_id"
-  ) %>%
-  unique()
+    all_cmpds_eq_classes %>%
+      select(id, eq_class),
+    by = c("hms_id" = "id")
+  )
 
-#############################################################################################################T
-# bind files and make Q1 file----------
-#############################################################################################################T
+# bind files and make Q1 file --------------------------------------------------
+###############################################################################T
 
-names(klaeger_neat)
-names(biochem_neat)
-names(doseresponse_inhouse_neat)
-klaeger_rowbind<-klaeger_neat%>%
-  mutate(chembl_id_cmpd=chembl_id)%>%
-  dplyr::select(chembl_id_cmpd, value, value_unit, gene_id, reference_id, reference_type, file_url)
-biochem_rowbind<-biochem_neat%>%
-  mutate(reference_id=chembl_id_doc,
-         reference_type="chembl_id",
-         file_url=paste0("https://www.ebi.ac.uk/chembl/document_report_card/",chembl_id_doc),
-         chembl_id_cmpd=chembl_id,
-         value=standard_value,
-         value_unit=standard_units)%>%
-  dplyr::select(chembl_id_cmpd, value, value_unit, gene_id, reference_id, reference_type, file_url)
-doseresponse_inhouse_rowbind<-doseresponse_inhouse_neat%>%
-  mutate(chembl_id_cmpd=chembl_id,
-         reference_id=synapse_id,
-         reference_type="synapse_id")%>%
-  dplyr::select(chembl_id_cmpd,value,value_unit, gene_id, reference_id,reference_type,file_url)
+biochem_rowbind <- biochem_neat %>%
+  mutate(
+    reference_id = chembl_id_doc,
+    reference_type = "chembl_id",
+    file_url = paste0("https://www.ebi.ac.uk/chembl/document_report_card/",chembl_id_doc),
+    value = standard_value,
+    value_unit = standard_units
+  ) %>%
+  select(eq_class, value, value_unit, gene_id, reference_id, reference_type, file_url)
+
+doseresponse_inhouse_rowbind <- doseresponse_inhouse_neat %>%
+  mutate(
+    reference_id = synapse_id,
+    reference_type = "synapse_id"
+  ) %>%
+  select(eq_class, value, value_unit, gene_id, reference_id, reference_type, file_url)
 
 complete_table <- bind_rows(
-  klaeger_rowbind,
   biochem_rowbind,
   doseresponse_inhouse_rowbind
 ) %>%
-  as_tibble() %>%
-  distinct() %>%
-  mutate(value = round(value, 2)) %>%
-  drop_na(chembl_id_cmpd, gene_id) %>%
-  filter(value > 0)
+  # Call to distinct important, since some assays can be recorded multiple times
+  # for the same eq_class now, when multiple forms of the same drug where mapped
+  # to the same eq_class and an assay was stored in the db for all forms
+  distinct()
 
-setwd(dir_cheminformatics_files)
-write_csv(complete_table, "complete_inhouse_klaeger_chembl_biochem_20190708.csv.gz")
+write_csv(
+  complete_table,
+  file.path(dir_release, "biochemicaldata_complete_inhouse_chembl.csv.gz")
+)
 
 #test: unit
 complete_table$value_unit%>%unique()
@@ -113,54 +83,43 @@ complete_table_Q1 <- complete_table %>%
   data.table::as.data.table() %>%
   .[
     ,
-    .(Q1 = round(quantile(value, 0.25, names = FALSE))),
-    by = .(chembl_id_cmpd, gene_id)
+    .(Q1 = round(quantile(value, 0.25, names = FALSE), 2)),
+    by = .(eq_class, gene_id)
   ] %>%
-  as_tibble()
+  as_tibble() %>%
+  mutate(binding = if_else(Q1 < 10000, 1L, 0L))
 
-write_csv(complete_table_Q1, "Q1_table_alldata_20190708.csv.gz")
-
-complete_table_binding <- complete_table_Q1 %>%
-  mutate(binding = ifelse(Q1 < 10000, 1, 0))
-
-write_csv(complete_table_binding, "binding_table_alldata_20190708.csv.gz")
-
+write_csv(
+  complete_table_Q1,
+  file.path(dir_release, "biochemicaldata_complete_inhouse_chembl_Q1.csv.gz")
+)
 
 # Also calculate Q1 values for kinomescan data from HMS LINCS for which no
 # complete dose response curve is available
-setwd(dir_hmsl_data)
-hmsl_kinomescan <- read_csv(
-  "all_discoverX_kinomescan_20190619.csv",
-  col_types = "cccdcdcc"
-)
+hmsl_kinomescan <- syn("syn20692432") %>%
+  read_csv(col_types = "cccdcdcc") %>%
+  # Some of the HMSL IDs don't start with "HMSL", fix that
+  mutate(hms_id = if_else(str_starts(hms_id, "HMSL"), hms_id, paste0("HMSL", hms_id)))
 
 # check how common the situation is where a single gene was tested in different
 # variants (mutants, post-translational modification, etc.)
 hmsl_kinomescan %>%
   count(hms_id, gene_symbol, cmpd_conc_nM) %>%
   count(n)
-# # A tibble: 19 x 2
+# # A tibble: 21 x 2
 # n    nn
 # <int> <int>
-#   1     1 64128
-# 2     2  2749
-# 3     3   311
-# 4     4   199
+#   1     1 60448
+# 2     2  4467
+# 3     3   283
+# 4     4   250
 # 5     5    32
-# 6     6    43
+# 6     6    57
 # 7     7    56
-# 8     8    85
-# 9     9   132
-# 10    10   171
-# 11    11    71
-# 12    12   145
-# 13    15   145
-# 14    17     1
-# 15    18     2
-# 16    19     1
-# 17    20     2
-# 18    24     2
-# 19    30     2
+# 8     8    88
+# 9     9   122
+# 10    10   161
+# # … with 11 more rows
 # It's very common, so we have to decide how to aggregate info for every
 # target/compound combo.
 # I think it makes sense to try to filter out mutant data, but keep post-translational
@@ -180,21 +139,54 @@ hmsl_kinomescan_cleaned <- hmsl_kinomescan %>%
 hmsl_kinomescan_mapped <- hmsl_kinomescan_cleaned %>%
   genebabel::join_hgnc("gene_symbol", c("symbol", "alias_symbol", "prev_symbol"), c("entrez_id", "name")) %>%
   left_join(
-    hms_lincs_chembl_mapping %>%
-      distinct(hms_id, chembl_id),
-    by = "hms_id"
+    all_cmpds_eq_classes %>%
+      select(id, eq_class),
+    by = c("hms_id" = "id")
   ) %>%
   rename(gene_id = entrez_id, pref_name_cmpd = pref_name, pref_name_target = name) %>%
-  drop_na(chembl_id, gene_id)
+  drop_na(gene_id)
+
+write_csv(
+  hmsl_kinomescan_mapped,
+  file.path(dir_release, "biochemicaldata_single_dose_inhouse.csv.gz")
+)
 
 hmsl_kinomescan_q1 <- hmsl_kinomescan_mapped %>%
   as.data.table() %>%
   .[
     ,
     .(percent_control_Q1 = quantile(percent_control, 0.25, names = FALSE)),
-    by = .(chembl_id, gene_id, cmpd_conc_nM)
+    by = .(eq_class, gene_id, cmpd_conc_nM)
     ] %>%
   as_tibble()
 
-write_csv(hmsl_kinomescan_q1, "hmsl_kinomescan_q1_20190619.csv.gz")
+write_csv(
+  hmsl_kinomescan_q1,
+  file.path(dir_release, "biochemicaldata_single_dose_inhouse_Q1.csv.gz")
+)
 
+# Store to synapse -------------------------------------------------------------
+###############################################################################T
+
+aggregation_activity <- Activity(
+  name = "Aggregate affinity data",
+  used = c(
+    "syn20693885",
+    "syn20693825",
+    "syn20692433",
+    "syn20692432"
+  ),
+  executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/data_processing/02_aggregate_drug_affinities.R"
+)
+
+list(
+  file.path(dir_release, "biochemicaldata_complete_inhouse_chembl.csv.gz"),
+  file.path(dir_release, "biochemicaldata_complete_inhouse_chembl_Q1.csv.gz"),
+  file.path(dir_release, "biochemicaldata_single_dose_inhouse.csv.gz"),
+  file.path(dir_release, "biochemicaldata_single_dose_inhouse_Q1.csv.gz")
+) %>%
+  map(
+    . %>%
+      File(parent = syn_release) %>%
+      synStore(activity = aggregation_activity)
+  )
