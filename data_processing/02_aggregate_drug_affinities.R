@@ -19,11 +19,11 @@ all_cmpds_eq_classes <- syn("syn20693885") %>%
   read_csv(col_types = "cci")
 
 biochem_alldata <- syn("syn20693825") %>%
-  read_csv(col_types = "iiiicccdcicccccccicicc")
+  read_csv(col_types = "iiiicccdciccccicccccii")
 
 biochem_neat <- biochem_alldata %>%
   rename(pref_name_target = pref_name) %>%
-  filter(tax_id == 9606, !is.na(gene_id)) %>%
+  filter(tax_id == 9606, !is.na(entrez_gene_id)) %>%
   left_join(
     all_cmpds_eq_classes %>%
       select(id, eq_class),
@@ -35,6 +35,7 @@ doseresponse_inhouse <- syn("syn20692433") %>%
 
 doseresponse_inhouse_neat <- doseresponse_inhouse %>%
   mutate(hms_id = paste0("HMSL", hms_id)) %>%
+  rename(entrez_gene_id = gene_id) %>%
   left_join(
     all_cmpds_eq_classes %>%
       select(id, eq_class),
@@ -52,14 +53,14 @@ biochem_rowbind <- biochem_neat %>%
     value = standard_value,
     value_unit = standard_units
   ) %>%
-  select(eq_class, value, value_unit, gene_id, reference_id, reference_type, file_url)
+  select(eq_class, value, value_unit, uniprot_id, entrez_gene_id, reference_id, reference_type, file_url)
 
 doseresponse_inhouse_rowbind <- doseresponse_inhouse_neat %>%
   mutate(
     reference_id = synapse_id,
     reference_type = "synapse_id"
   ) %>%
-  select(eq_class, value, value_unit, gene_id, reference_id, reference_type, file_url)
+  select(eq_class, value, value_unit, uniprot_id, entrez_gene_id, reference_id, reference_type, file_url)
 
 complete_table <- bind_rows(
   biochem_rowbind,
@@ -84,7 +85,7 @@ complete_table_Q1 <- complete_table %>%
   .[
     ,
     .(Q1 = round(quantile(value, 0.25, names = FALSE), 2)),
-    by = .(eq_class, gene_id)
+    by = .(eq_class, entrez_gene_id)
   ] %>%
   as_tibble() %>%
   mutate(binding = if_else(Q1 < 10000, 1L, 0L))
@@ -137,14 +138,23 @@ hmsl_kinomescan_cleaned <- hmsl_kinomescan %>%
   )
 
 hmsl_kinomescan_mapped <- hmsl_kinomescan_cleaned %>%
-  genebabel::join_hgnc("gene_symbol", c("symbol", "alias_symbol", "prev_symbol"), c("entrez_id", "name")) %>%
+  genebabel::join_hgnc(
+    "gene_symbol",
+    c("symbol", "alias_symbol", "prev_symbol"),
+    c("entrez_id", "name", "uniprot_ids")
+  ) %>%
+  # I checked, no gene_symbol maps to multiple uniprot, so this is safe
+  mutate(
+    uniprot_id = as.character(uniprot_ids)
+  ) %>%
+  select(-uniprot_ids) %>%
   left_join(
     all_cmpds_eq_classes %>%
       select(id, eq_class),
     by = c("hms_id" = "id")
   ) %>%
-  rename(gene_id = entrez_id, pref_name_cmpd = pref_name, pref_name_target = name) %>%
-  drop_na(gene_id)
+  rename(entrez_gene_id = entrez_id, pref_name_cmpd = pref_name, pref_name_target = name) %>%
+  drop_na(entrez_gene_id)
 
 write_csv(
   hmsl_kinomescan_mapped,
@@ -156,7 +166,7 @@ hmsl_kinomescan_q1 <- hmsl_kinomescan_mapped %>%
   .[
     ,
     .(percent_control_Q1 = quantile(percent_control, 0.25, names = FALSE)),
-    by = .(eq_class, gene_id, cmpd_conc_nM)
+    by = .(eq_class, entrez_gene_id, cmpd_conc_nM)
     ] %>%
   as_tibble()
 

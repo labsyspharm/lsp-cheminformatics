@@ -31,7 +31,7 @@ con <- dbConnect(drv, dbname = "chembl_25",
 
 # Get target gene mapping
 map_chembl_tid_gene_id <- syn("syn20693721") %>%
-  read_csv(col_types = "ccccciciiccccc")
+  read_csv(col_types = "ciciccciccccc")
 
 
 # get biochemical data all compounds -------------------------------------------
@@ -97,7 +97,16 @@ activities_biochem <- data.table::rbindlist(
 activities_biochem_geneid <- activities_biochem %>%
   left_join(
     map_chembl_tid_gene_id %>%
-      distinct(chembl_id_target = chembl_id, symbol, gene_id, uniprot_id, tax_id, tid, target_type, pref_name) %>%
+      distinct(
+        tid,
+        chembl_id_target = chembl_id,
+        target_type,
+        pref_name,
+        uniprot_id,
+        entrez_symbol,
+        entrez_gene_id,
+        tax_id
+      ) %>%
       mutate_at(vars(tid), as.integer64),
     by = "tid"
   ) %>%

@@ -45,21 +45,53 @@ organism_biomart_mapping <- c(
   "Mus musculus" = "mmusculus_gene_ensembl"
 )
 
+allowed_target_types = c(
+  "SELECTIVITY GROUP",
+  "PROTEIN NUCLEIC-ACID COMPLEX",
+  "PROTEIN FAMILY",
+  "CHIMERIC PROTEIN",
+  "PROTEIN COMPLEX",
+  "SINGLE PROTEIN",
+  "PROTEIN COMPLEX GROUP"
+)
+
 chembl_info_all_targets <- dbGetQuery(
   con,
   paste0(
-    "select dict.tid, dict.pref_name, dict.tax_id, dict.organism, dict.chembl_id
-    from target_dictionary as dict"
+    "SELECT dict.tid, dict.pref_name, dict.tax_id, dict.organism, dict.chembl_id, dict.target_type
+    FROM target_dictionary AS dict"
   )
 ) %>%
   as_tibble() %>%
-  filter(organism %in% names(organism_biomart_mapping))
+  filter(organism %in% names(organism_biomart_mapping), target_type %in% allowed_target_types)
+
+chembl_info_all_targets %>%
+  count(chembl_id, target_type) %>%
+  count(n)
+# # A tibble: 1 x 2
+# n    nn
+# <int> <int>
+#   1     1  5842
+# Only a single target type per chembl_id
+
 
 map_uniprot_chembl <- read_tsv(
   file.path(dir_release, "chembl_uniprot_mapping.txt"), skip = 1,
-  col_names = c("uniprot_id", "chembl_id", "protein_name", "target_type")
-) %>%
-  inner_join(chembl_info_all_targets, by = "chembl_id")
+  col_names = c("uniprot_id", "chembl_id", "pref_name", "target_type")
+)
+
+
+map_with_uniprot <- chembl_info_all_targets %>%
+  left_join(
+    map_uniprot_chembl %>%
+      dplyr::select(chembl_id, uniprot_id),
+    by = "chembl_id"
+  )
+
+download.file(
+  "ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping_selected.tab.gz",
+  file.path(dir_release, "uniprot_id_mapping.tsv.gz")
+)
 
 uniprot_to_entrez <- function(df, group) {
   mart <- useMart(
@@ -90,40 +122,40 @@ uniprot_to_entrez <- function(df, group) {
   df
 }
 
-map_uniprot_chembl <- map_uniprot_chembl %>%
+map_with_entrez <- map_with_uniprot %>%
   group_by(organism) %>%
   group_modify(uniprot_to_entrez) %>%
-  dplyr::rename(gene_id = entrezgene_id) %>%
+  dplyr::rename(entrez_gene_id = entrezgene_id) %>%
   ungroup()
 
-map_uniprot_chembl %>%
-  filter(is.na(gene_id)) %>%
+map_with_entrez %>%
+  filter(is.na(entrez_gene_id)) %>%
   dplyr::count(organism)
 # # A tibble: 3 x 2
 # organism              n
 # <chr>             <int>
-#   1 Homo sapiens         19
-# 2 Mus musculus        150
-# 3 Rattus norvegicus   621
+#   1 Homo sapiens         15
+# 2 Mus musculus        149
+# 3 Rattus norvegicus   620
 
-# Only 19 human uniprot IDs left without a matching Entrez ID, good enough...
+# Only 15 human uniprot IDs left without a matching Entrez ID, good enough...
 
-map_uniprot_chembl %>%
-  drop_na(gene_id) %>%
-  dplyr::count(gene_id) %>%
+map_with_entrez %>%
+  drop_na(entrez_gene_id) %>%
+  dplyr::count(entrez_gene_id) %>%
   dplyr::count(n)
 # # A tibble: 15 x 2
 # n    nn
 # <int> <int>
-#   1     1  4051
-# 2     2   685
-# 3     3   211
-# 4     4   100
-# 5     5    41
-# 6     6    22
-# 7     7    17
-# 8     8     4
-# 9     9     6
+#   1     1  4078
+# 2     2   653
+# 3     3   200
+# 4     4    93
+# 5     5    36
+# 6     6    20
+# 7     7    16
+# 8     8     3
+# 9     9     5
 # 10    10     7
 # 11    11     2
 # 12    12     3
@@ -145,20 +177,20 @@ gene_info <- vroom(
   file.path(dir_release, "gene_info_20190829.gz"),
   delim = "\t",
   col_names = c(
-    "tax_id", "gene_id", "ncbi_symbol", "locus_tag", "synonyms", "db_xrefs", "chromosome",
-    "map_location", "description", "type_of_gene", "symbol", "name_ncbi", "nomenclature_status",
+    "tax_id", "entrez_gene_id", "entrez_symbol", "locus_tag", "entrez_synonyms", "db_xrefs", "chromosome",
+    "map_location", "entrez_description", "entrez_type_of_gene", "symbol", "entrez_name", "nomenclature_status",
     "other_designations", "modification_date", "feature_type"
   ),
-  col_types = "iic_c___c_cc____",
+  col_types = "iic_c___cc_c____",
   skip = 1
 )
 
-map_chemblID_geneID <- map_uniprot_chembl %>%
+map_chemblID_geneID <- map_with_entrez %>%
   # Have to cast as integer64 because the Chembl postgresql DB stores some ids
   # (tid, tax_id) as 64bit integer
   left_join(
     mutate_at(gene_info, "tax_id", bit64::as.integer64),
-    by = c("tax_id", "gene_id")
+    by = c("tax_id", "entrez_gene_id")
   ) %>%
   distinct()
 
