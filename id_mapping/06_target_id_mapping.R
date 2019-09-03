@@ -77,11 +77,12 @@ chembl_info_all_targets %>%
 
 map_uniprot_chembl <- read_tsv(
   file.path(dir_release, "chembl_uniprot_mapping.txt"), skip = 1,
-  col_names = c("uniprot_id", "chembl_id", "pref_name", "target_type")
+  col_names = c("uniprot_id", "chembl_id", "pref_name", "target_type"),
+  col_types = "cccc"
 )
 
 
-map_with_uniprot <- chembl_info_all_targets %>%
+chembl_map_with_uniprot <- chembl_info_all_targets %>%
   left_join(
     map_uniprot_chembl %>%
       dplyr::select(chembl_id, uniprot_id),
@@ -122,13 +123,13 @@ uniprot_to_entrez <- function(df, group) {
   df
 }
 
-map_with_entrez <- map_with_uniprot %>%
+chembl_map_with_entrez <- chembl_map_with_uniprot %>%
   group_by(organism) %>%
   group_modify(uniprot_to_entrez) %>%
   dplyr::rename(entrez_gene_id = entrezgene_id) %>%
   ungroup()
 
-map_with_entrez %>%
+chembl_map_with_entrez %>%
   filter(is.na(entrez_gene_id)) %>%
   dplyr::count(organism)
 # # A tibble: 3 x 2
@@ -140,7 +141,7 @@ map_with_entrez %>%
 
 # Only 15 human uniprot IDs left without a matching Entrez ID, good enough...
 
-map_with_entrez %>%
+chembl_map_with_entrez %>%
   drop_na(entrez_gene_id) %>%
   dplyr::count(entrez_gene_id) %>%
   dplyr::count(n)
@@ -185,7 +186,7 @@ gene_info <- vroom(
   skip = 1
 )
 
-map_chemblID_geneID <- map_with_entrez %>%
+map_chemblID_geneID <- chembl_map_with_entrez %>%
   # Have to cast as integer64 because the Chembl postgresql DB stores some ids
   # (tid, tax_id) as 64bit integer
   left_join(

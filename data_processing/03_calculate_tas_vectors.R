@@ -175,6 +175,26 @@ tas_vector_annotated <- tas_vector %>%
     by = "entrez_gene_id"
   )
 
+tas_vector_annotated_long <- tas_vector %>%
+  left_join(
+    cmpd_eq_classes %>%
+      select(compound_id = id, compound_id_source = source, eq_class),
+    by = "eq_class"
+  ) %>%
+  left_join(
+    gene_info %>%
+      select(entrez_gene_id, entrez_symbol),
+    by = "entrez_gene_id"
+  ) %>%
+  select(
+    eq_class,
+    compound_id,
+    compound_id_source,
+    entrez_gene_id,
+    entrez_symbol,
+    tas = tas_combined
+  )
+
 write_csv(
   tas_vector,
   file.path(dir_release, "tas_vector.csv.gz")
@@ -183,6 +203,11 @@ write_csv(
 write_csv(
   tas_vector_annotated,
   file.path(dir_release, "tas_vector_annotated.csv.gz")
+)
+
+write_csv(
+  tas_vector_annotated_long,
+  file.path(dir_release, "tas_vector_annotated_long.csv.gz")
 )
 
 # Store to synapse -------------------------------------------------------------
@@ -203,6 +228,7 @@ tas_activity <- Activity(
 
 c(
   file.path(dir_release, "tas_vector.csv.gz"),
-  file.path(dir_release, "tas_vector_annotated.csv.gz")
+  file.path(dir_release, "tas_vector_annotated.csv.gz"),
+  file.path(dir_release, "tas_vector_annotated_long.csv.gz")
 ) %>%
   synStoreMany(parentId = syn_release, activity = tas_activity)
