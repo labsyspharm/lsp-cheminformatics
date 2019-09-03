@@ -186,6 +186,9 @@ tas_vector_annotated_long <- tas_vector %>%
       select(entrez_gene_id, entrez_symbol),
     by = "entrez_gene_id"
   ) %>%
+  mutate(
+    entrez_symbol = if_else(!is.na(entrez_symbol), entrez_symbol, entrez_gene_id)
+  ) %>%
   select(
     eq_class,
     compound_id,
