@@ -165,7 +165,7 @@ ssh_exec_cmd_repeat <- paste(
 
 ssh_exec_cmd_repeat %>% paste(collapse = "\n") %>% clipr::write_clip()
 
-canonical_path <- file.path("chembl_compounds", "canonical") %>%
+canonical_path <- file.path(dir_release, "chembl_compounds", "canonical") %>%
   normalizePath()
 dir.create(canonical_path, showWarnings = FALSE, recursive = TRUE)
 
@@ -177,14 +177,16 @@ canonical <- list.files(
     full.names = TRUE
   ) %>%
   map(read_csv, col_types = "ccc") %>%
-  bind_rows() %>%
+  bind_rows()
+
+canonical_mapped <- canonical %>%
   left_join(
     all_cmpds %>%
       select(chembl_id, chembl_inchi = standard_inchi),
     by = c("query" = "chembl_inchi")
   )
 
-canonical_all <- canonical %>%
+canonical_all <- canonical_mapped %>%
   distinct() %>%
   left_join(
     all_cmpds %>%

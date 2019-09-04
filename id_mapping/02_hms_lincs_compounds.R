@@ -88,6 +88,7 @@ plan(multisession(workers = 8))
 hms_lincs_compounds_canonical_inchis <- rt_df_inchi %>%
   drop_na(inchi) %>%
   pull("inchi") %>%
+  unique() %>%
   split((seq(length(.)) - 1) %/% 100) %>%
   future_map(canonicalize, key = "inchi", standardize = TRUE)
 
@@ -95,18 +96,18 @@ hms_lincs_compounds_canonical_inchis_df <- hms_lincs_compounds_canonical_inchis 
   map(chuck, "canonicalized") %>%
   map(as_tibble) %>%
   bind_rows() %>%
-  distinct(inchi = query, canonical_inchi = inchi, canonical_smiles = smiles)
+  distinct(original_inchi = query, inchi, canonical_smiles = smiles)
 
 hms_lincs_compounds_canonical <- rt_df_inchi %>%
   select(hms_id, original_inchi = inchi) %>%
   left_join(
     hms_lincs_compounds_canonical_inchis_df %>%
-      select(original_inchi = inchi, inchi = canonical_inchi),
+      select(original_inchi, inchi),
     by = "original_inchi"
   ) %>%
   mutate(
     # Whe canonicalization failed, use original inchi
-    inchi = if_else(is.na(inchi), original_inchi, inchi)
+    inchi = if_else(!is.na(inchi), inchi, original_inchi)
   )
 
 write_csv(
@@ -123,12 +124,8 @@ fetch_hmsl_activity <- Activity(
   executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/id_mapping/02_hms_lincs_compounds.R"
 )
 
-list(
+c(
   file.path(dir_release, "hmsl_compounds_canonical.csv.gz"),
   file.path(dir_release, "hmsl_compounds_raw.rds")
 ) %>%
-  map(
-    . %>%
-      File(parent = syn_release) %>%
-      synStore(activity = fetch_hmsl_activity)
-  )
+  synStoreMany(parent = syn_release, activity = fetch_hmsl_activity)
