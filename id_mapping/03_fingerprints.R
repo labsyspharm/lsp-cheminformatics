@@ -54,8 +54,11 @@ write_csv(
 # Create molecular fingerprints ------------------------------------------------
 ###############################################################################T
 
-plan(multisession, workers = 8)
+plan(multisession, workers = 12)
 cmpd_fingerprints <- compounds_canonical %>%
+  # Some HMSL compounds don't report inchi or smiles or anything, should have removed
+  # them earlier, removing them here now
+  drop_na() %>%
   select(name = id, compound = inchi) %>%
   split((seq(nrow(.)) - 1) %/% 10000) %>%
   enframe("index", "compounds") %>%
@@ -66,6 +69,15 @@ cmpd_fingerprints <- compounds_canonical %>%
   )
 write_rds(cmpd_fingerprints, file.path(dir_release, "all_compounds_fingerprints.rds"))
 # cmpd_fingerprints <- read_rds(file.path(dir_release, "all_compounds_fingerprints.rds"))
+
+
+skipped_cmpds <- cmpd_fingerprints %>%
+  pull("fingerprint_res") %>%
+  map("skipped_compounds") %>%
+  map(as.character) %>%
+  reduce(c)
+
+write_lines(skipped_cmpds, file.path(dir_release, "all_compounds_fingerprints_skipped.txt"))
 
 fingerprint_fps <- cmpd_fingerprints$fingerprint_res %>%
   map("fps_file") %>%
@@ -97,13 +109,9 @@ fingerprint_activity <- Activity(
   executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/id_mapping/03_fingerprints.R"
 )
 
-list(
+c(
   file.path(dir_release, "all_compounds_fingerprints.rds"),
   file.path(dir_release, "all_compounds_fingerprints.fps"),
   file.path(dir_release, "all_compounds_canonical.csv.gz")
 ) %>%
-  map(
-    . %>%
-      File(parent = syn_release) %>%
-      synStore(activity = fingerprint_activity)
-  )
+  synStoreMany(parent = syn_release, activity = fingerprint_activity)

@@ -20,7 +20,7 @@ syn_release <- synFindEntityId(release, "syn18457321")
 complete_table_Q1 <- syn("syn20693968") %>%
   read_csv(col_types = "iidi")
 
-hmsl_kinomescan <- syn("syn20693970") %>%
+hmsl_kinomescan_Q1 <- syn("syn20693970") %>%
   read_csv(col_types = "iidd")
 
 # Checking if all target/compound combinations are unique
@@ -30,9 +30,9 @@ complete_table_Q1 %>%
 # # A tibble: 1 x 2
 # n     nn
 # <int>  <int>
-#   1     1 877496
+  # 1     1 877489
 
-hmsl_kinomescan %>%
+hmsl_kinomescan_Q1 %>%
   count(eq_class, entrez_gene_id, cmpd_conc_nM) %>%
   count(n)
 # # A tibble: 1 x 2
@@ -51,7 +51,11 @@ literature_annotations <- syn("syn20694521") %>%
       select(eq_class, id),
     by = c("hms_id" = "id")
   ) %>%
-  select(eq_class, entrez_gene_id = gene_id)
+  select(eq_class, entrez_gene_id = gene_id) %>%
+  mutate(tas_literature = 2L) %>%
+  # There are some duplicates in the literature annotation file
+  # plus, in one case, two HMSL ids map to the same eq_class
+  distinct()
 
 # calculate TAS ----------------------------------------------------------------
 ###############################################################################T
@@ -67,7 +71,7 @@ complete_table_tas <- complete_table_Q1 %>%
     )
   )
 
-hmsl_kinomescan_tas <- hmsl_kinomescan %>%
+hmsl_kinomescan_tas <- hmsl_kinomescan_Q1 %>%
   mutate(
     tas = case_when(
       cmpd_conc_nM == 10000 & percent_control_Q1 >= 75 ~ 10L,
@@ -114,30 +118,32 @@ combined_q1 <- full_join(
   complete_table_tas %>%
     select(eq_class, entrez_gene_id, tas_affinity = tas),
   hmsl_kinomescan_tas_agg %>%
-    select(eq_class, entrez_gene_id, tas_inhibition = tas),
+    select(eq_class, entrez_gene_id, tas_single_dose = tas),
   by = c("eq_class", "entrez_gene_id")
 ) %>%
   full_join(
-    literature_annotations %>%
-      mutate(tas_literature = 2L),
+    literature_annotations,
     by = c("eq_class", "entrez_gene_id")
   ) %>%
   arrange(eq_class, entrez_gene_id)
 
 # Again checking for cases where we get contradictory results
 combined_q1 %>%
-  drop_na() %>%
-  filter(tas_affinity != tas_inhibition)
+  filter(tas_affinity != tas_single_dose)
+
+combined_q1 %>%
+  filter(tas_affinity > tas_literature) %>%
+  View()
 
 # Prefer results from full affinity measuremennts over the percent inhibition
 # When incorporating Verena's manual annotatations, prefer affinity data.
 # If affinity data not present, take minimum of of Verena + percent control
 combined_q1_agg <- combined_q1 %>%
   mutate(
-    tas_combined = if_else(
+    tas = if_else(
       !is.na(tas_affinity),
       tas_affinity,
-      pmin(tas_inhibition, tas_literature, na.rm = TRUE)
+      pmin(tas_single_dose, tas_literature, na.rm = TRUE)
     )
   )
 
@@ -148,7 +154,7 @@ compound_map <- syn("syn20692551") %>%
   read_rds()
 
 tas_vector <- combined_q1_agg %>%
-  select(eq_class, entrez_gene_id, tas_combined)
+  select(lspci_id = eq_class, entrez_gene_id, starts_with("tas"))
 
 # Using vroom here instead of loading the entire csv because it is downright massive
 # and vroom is much faster
@@ -167,8 +173,8 @@ gene_info <- vroom(
 tas_vector_annotated <- tas_vector %>%
   left_join(
     compound_map %>%
-      select(eq_class = lspci_id, chembl_id, hms_id, pref_name),
-    by = "eq_class"
+      select(lspci_id, chembl_id, hms_id, pref_name),
+    by = "lspci_id"
   ) %>%
   left_join(
     gene_info,
@@ -178,24 +184,24 @@ tas_vector_annotated <- tas_vector %>%
 tas_vector_annotated_long <- tas_vector %>%
   left_join(
     cmpd_eq_classes %>%
-      select(compound_id = id, compound_id_source = source, eq_class),
-    by = "eq_class"
-  ) %>%
+      select(compound_id = id, compound_id_source = source, lspci_id = eq_class),
+    by = "lspci_id"
+  )%>%
   left_join(
     gene_info %>%
       select(entrez_gene_id, entrez_symbol),
     by = "entrez_gene_id"
   ) %>%
   mutate(
-    entrez_symbol = if_else(!is.na(entrez_symbol), entrez_symbol, entrez_gene_id)
+    entrez_symbol = if_else(!is.na(entrez_symbol), entrez_symbol, as.character(entrez_gene_id))
   ) %>%
   select(
-    eq_class,
+    lspci_id,
     compound_id,
     compound_id_source,
     entrez_gene_id,
     entrez_symbol,
-    tas = tas_combined
+    starts_with("tas")
   )
 
 write_csv(

@@ -2,7 +2,7 @@ library(tidyverse)
 library(httr)
 
 x <- POST(
-  "http://127.0.0.1:5000/query/tautomers",
+  "http://localhost:5001/query/tautomers",
   body = list(
     "smiles" = "C[C@@H](C1=C(C(=O)C2=C(O1)C=CC(=C2)F)C3=CC(=CC=C3)F)N4C5=C(C(=N4)C6=CC(=C(C=C6)OC(C)C)F)C(=NC=N5)N"
   ),

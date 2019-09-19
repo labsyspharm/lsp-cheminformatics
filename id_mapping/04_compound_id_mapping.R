@@ -20,35 +20,58 @@ syn_release <- synFindEntityId(release, "syn18457321")
 # Calculate similarity between all compounds -----------------------------------
 ###############################################################################T
 
-cmpd_fingerprints <- syn("syn20692501") %>%
-  read_rds()
+all_compounds_fingerprints <- syn("syn20692510")
 
-plan(multisession(workers = 8))
-cmdp_similarity <- cmpd_fingerprints %>%
-  mutate(
-    similarity_res = future_map(
-      fingerprint_res,
-      function(fp) {
-        fp_out <- tempfile(fileext = ".fps")
-        writeBin(fp$fps_file, fp_out)
-        scan_fingerprint_matches(
-          syn("syn20692510"),
-          query = fp_out,
-          threshold = 0.9999
-        )
-      },
-      .progress = TRUE
-    )
-  )
+similarity_res <- scan_fingerprint_matches(
+  all_compounds_fingerprints,
+  threshold = 0.9999
+)
 
-write_rds(cmdp_similarity, file.path(dir_release, "all_compounds_similarity_raw.rds"))
-
-similarity_df <- cmdp_similarity$similarity_res %>%
-  map(as_tibble) %>%
-  bind_rows() %>%
+similarity_df <- similarity_res %>%
+  as_tibble() %>%
   mutate(score = as.double(score))
 
 write_csv(similarity_df, file.path(dir_release, "all_compounds_similarity.csv.gz"))
+# similarity_df <- read_csv(file.path(dir_release, "all_compounds_similarity.csv.gz"), col_types = "ccd")
+
+
+# Additionally, map HMSL by name -----------------------------------------------
+###############################################################################T
+
+# Only done for compounds where for some reason no comparison based on molecular
+# fingerprint was possible. Eg. no Inchi was provided in Reagent Tracker
+
+hmsl_cmpds <- syn("syn20692443") %>%
+  read_rds()
+
+
+hmsl_name_matches <- hmsl_cmpds %>%
+  filter(
+    !(hms_id %in% (
+      similarity_df %>%
+        filter(str_starts(query, "HMSL"), str_starts(match, "CHEMBL")) %>%
+        pull(query) %>%
+        unique()
+      )
+    )
+  ) %>%
+  mutate(
+    name = str_to_lower(name)
+  ) %>%
+  select(-chembl_id) %>%
+  left_join(
+    chembl_cmpds %>%
+      transmute(chembl_id, pref_name = str_to_lower(pref_name)),
+    by = c("name" = "pref_name")
+  ) %>%
+  drop_na(chembl_id)
+
+identity_df <- bind_rows(
+  similarity_df %>%
+    select(-score),
+  hmsl_name_matches %>%
+    select(query = hms_id, match = chembl_id)
+)
 
 # Defining equivalence classes -------------------------------------------------
 ###############################################################################T
@@ -107,9 +130,6 @@ chembl_cmpds_with_parent %>%
 
 # Adding equivalence class for all compounds -----------------------------------
 ###############################################################################T
-
-hmsl_cmpds <- syn("syn20692443") %>%
-  read_rds()
 
 # Add eq_class for compounds for which no inchi is known or whose inchi is not parseable
 all_eq_class <- bind_rows(
@@ -256,6 +276,48 @@ canonical_table <- eq_classes_canonical %>%
 
 write_rds(canonical_table, file.path(dir_release, "canonical_table.rds"), compress = "gz")
 
+
+# Checking proportion of mapped HMSL ids ---------------------------------------
+###############################################################################T
+
+canonical_table %>%
+  transmute(lspci_id, chembl_id = !is.na(chembl_id), hms_id = !is.na(hms_id)) %>%
+  group_by(chembl_id, hms_id) %>%
+  summarize(n = n())
+# # A tibble: 3 x 3
+# # Groups:   chembl_id [2]
+# chembl_id hms_id       n
+# <lgl>     <lgl>    <int>
+#   1 FALSE     TRUE       102
+# 2 TRUE      FALSE  1666665
+# 3 TRUE      TRUE      1860
+
+rt_map <- read_csv(
+  here("rt_chembl_matches_20190617.txt")
+) %>%
+  rename_all(paste0, "_legacy") %>%
+  group_by(hmsl_id_legacy) %>%
+  summarize_at(vars(chembl_id_legacy), list)
+
+canonical_table %>%
+  left_join(rt_map, by = c("hms_id" = "hmsl_id_legacy")) %>%
+  mutate_at(vars(hms_id, chembl_id), negate(is.na)) %>%
+  mutate(chembl_id_legacy = map_lgl(chembl_id_legacy, negate(is.null))) %>%
+  group_by(hms_id, chembl_id, chembl_id_legacy) %>%
+  summarize(n = n())
+# # A tibble: 5 x 4
+# # Groups:   hms_id, chembl_id [3]
+# hms_id chembl_id chembl_id_legacy       n
+# <lgl>  <lgl>     <lgl>              <int>
+#   1 FALSE  TRUE      FALSE            1666665
+# 2 TRUE   FALSE     FALSE                100
+# 3 TRUE   FALSE     TRUE                   2
+# 4 TRUE   TRUE      FALSE               1557
+# 5 TRUE   TRUE      TRUE                 303
+
+# Only 2 compounds frorm HMSL not mapped to Chembl that where found in previous
+# version. But 1557 additional compounds in new version.
+
 # Making non-canonical compound table ------------------------------------------
 ###############################################################################T
 
@@ -275,7 +337,6 @@ write_csv(alt_table, file.path(dir_release, "alternate_table.csv.gz"))
 cmpd_wrangling_activity <- Activity(
   name = "Map and wrangle compound IDs",
   used = c(
-    "syn20692501",
     "syn20692510",
     "syn20692440",
     "syn20692443",
@@ -284,15 +345,11 @@ cmpd_wrangling_activity <- Activity(
   executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/id_mapping/04_compound_id_mapping.R"
 )
 
-list(
-  file.path(dir_release, "all_compounds_similarity_raw.rds"),
+c(
   file.path(dir_release, "all_compounds_similarity.csv.gz"),
   file.path(dir_release, "canonical_table.rds"),
   file.path(dir_release, "alternate_table.csv.gz"),
   file.path(dir_release, "all_compounds_equivalence_classes.csv.gz")
 ) %>%
-  map(
-    . %>%
-      File(parent = syn_release) %>%
-      synStore(activity = cmpd_wrangling_activity)
-  )
+  synStoreMany(parent = syn_release, activity = cmpd_wrangling_activity)
+
