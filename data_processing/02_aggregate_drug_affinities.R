@@ -189,14 +189,10 @@ aggregation_activity <- Activity(
   executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/data_processing/02_aggregate_drug_affinities.R"
 )
 
-list(
+c(
   file.path(dir_release, "biochemicaldata_complete_inhouse_chembl.csv.gz"),
   file.path(dir_release, "biochemicaldata_complete_inhouse_chembl_Q1.csv.gz"),
   file.path(dir_release, "biochemicaldata_single_dose_inhouse.csv.gz"),
   file.path(dir_release, "biochemicaldata_single_dose_inhouse_Q1.csv.gz")
 ) %>%
-  map(
-    . %>%
-      File(parent = syn_release) %>%
-      synStore(activity = aggregation_activity)
-  )
+  synStoreMany(parent = syn_release, activity = aggregation_activity)

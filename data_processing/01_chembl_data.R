@@ -238,8 +238,4 @@ list(
   file.path(dir_release, "chembl_phenotypic_assaydata.csv.gz"),
   file.path(dir_release, "chembl_approval_info_phase1to4cmpds.csv.gz")
 ) %>%
-  map(
-    . %>%
-      File(parent = syn_release) %>%
-      synStore(activity = fetch_chembl_activity)
-  )
+  synStoreMany(parent = syn_release, activity = fetch_chembl_activity)
