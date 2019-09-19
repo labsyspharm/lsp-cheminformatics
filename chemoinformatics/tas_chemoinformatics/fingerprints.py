@@ -23,11 +23,21 @@ identifier_mol_mapping = {"smiles": Chem.MolFromSmiles, "inchi": inchi.MolFromIn
 
 app = Flask(__name__)
 
+fp_types = {
+    "topological": ["--RDK"],
+    "morgan": ["--morgan"],
+}
 
 @app.route("/fingerprints/fingerprint_db", methods=["POST"])
 def fingerprint_db():
     cmpd_json = request.json["compounds"]
     cmpd_encoding = request.json["request"]["encoding"]
+    fp_type = request.json["request"].get("fingerprint_type", "topological")
+    if not fp_type in fp_types:
+        raise ValueError("Invalid fingerprint type, use one of ", str(list(fp_types.keys())))
+    fp_args = request.json["request"].get("fingerprint_args", [])
+    if not isinstance(fp_args, list):
+        fp_args = [fp_args]
     input_df = pd.DataFrame(cmpd_json)
     if len(input_df) > 100000:
         raise ValueError(
@@ -53,7 +63,10 @@ def fingerprint_db():
     temp_sdf.close()
     print("Wrote molecules to sdf", temp_sdf.name)
     temp_fps = tempfile.mkstemp(suffix=".fps")
-    rdkit2fps.main(["-o", temp_fps[1], "--id-tag", "name", temp_sdf.name])
+    rdkit_cmd = ["-o", temp_fps[1], "--id-tag", "name"]
+    rdkit_cmd.extend(fp_types[fp_type])
+    rdkit_cmd.extend(fp_args)
+    rdkit2fps.main(rdkit_cmd + [temp_sdf.name])
     os.remove(temp_sdf.name)
     with open(temp_fps[1], "rb") as f:
         fps_b64 = base64.b64encode(f.read())
