@@ -1,6 +1,10 @@
+import base64
+import collections
+import io
 from flask import Flask, request
 from rdkit import Chem, RDLogger
-from rdkit.Chem import inchi
+from rdkit.Chem import inchi, Draw, AllChem
+
 from molvs import tautomer, standardize as mol_standardize
 
 # Run using:
@@ -79,6 +83,18 @@ def tautomerize(compound, id_used, max_tautomers=10):
         }
         for t in tauts
     ]
+
+
+def draw_molecules(compounds, id_used, names=None):
+    if not isinstance(compounds, list):
+        compounds = [compounds]
+    mols = [identifier_mol_mapping[id_used](c) for c in compounds]
+    for m in mols:
+        AllChem.Compute2DCoords(m)
+    img = Draw.MolsToGridImage(
+        mols, molsPerRow=4, subImgSize=(200,200), legends=names, useSVG=True
+    )
+    return img
 
 
 app = Flask(__name__)
@@ -160,3 +176,15 @@ def convert_ids():
             print(f"Can't convert {m}: {str(e)}")
             mols_out[m] = None
     return mols_out
+
+
+@app.route("/query/draw", methods=["POST"])
+def draw_molecules_route():
+    format_in = request.json["id"]
+    if format_in not in identifier_mol_mapping:
+        raise ValueError(
+            "input must be one of: ", repr(list(identifier_mol_mapping.keys))
+        )
+    mols = request.json["compounds"]
+    img = draw_molecules(list(mols.values()), format_in, names = list(mols.keys()))
+    return img
