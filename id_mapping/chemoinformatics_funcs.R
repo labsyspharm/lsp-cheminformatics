@@ -3,9 +3,16 @@ library(httr)
 library(jsonlite)
 
 # Making fingerprint database
-get_fingerprints <- function(compounds) {
+get_fingerprints <- function(compounds, fp_type = c("topological", "morgan"), fp_args = NULL) {
+  fp_type <- match.arg(fp_type)
+  request_list <- list(
+    encoding = "inchi",
+    fingerprint_type = fp_type
+  )
+  if (!is.null(fp_args))
+    request_list$fingerprint_args = fp_args
   fingerprint_request_json <- list(
-    request = list(encoding = "inchi"),
+    request = request_list,
     compounds = compounds
   ) %>%
     toJSON(dataframe = "columns", auto_unbox = TRUE)
@@ -17,7 +24,13 @@ get_fingerprints <- function(compounds) {
     accept_json()
     # write_disk("all_compounds_fingerprints_chembl24_1.fps", overwrite = TRUE)
   )
-  fingerprint_json <- content(fingerprint_response)
+  fingerprint_json <- content(
+    fingerprint_response,
+    as = "parsed",
+    type = "application/json",
+    encoding = "UTF-8",
+    simplifyVector = TRUE
+  )
   fingerprint_json$fps_file <- base64_dec(fingerprint_json$fps_file)
   fingerprint_json
 }
@@ -79,4 +92,22 @@ canonicalize <- function(value, key, standardize = TRUE) {
   )
   content(res, as = "text", encoding = "UTF-8") %>%
     jsonlite::fromJSON()
+}
+
+draw_compounds <- function(compounds, names, key = "inchi") {
+  body <- c(
+    list(
+      compounds = set_names(compounds, names) %>%
+        as.list()
+    ),
+    list(
+      id = "inchi"
+    )
+  )
+  res <- POST(
+    "http://127.0.0.1:5000/query/draw",
+    body = body,
+    encode = "json"
+  )
+  content(res, as = "text", encoding = "UTF-8")
 }
