@@ -1,32 +1,34 @@
 from __future__ import print_function
+
 import argparse
 import base64
-import pickle
-import os
-import sys
 import gzip
+import os
+import pickle
+import sys
 import tempfile
-import pandas as pd
 from itertools import izip
+
+import pandas as pd
 from flask import Flask, request, send_file
 from rdkit import Chem
 from rdkit.Chem import inchi
-from chemfp.commandline import rdkit2fps
-from chemfp.commandline import simsearch
 
-identifier_mol_mapping = {"smiles": Chem.MolFromSmiles, "inchi": inchi.MolFromInchi}
+from tas_chemoinformatics import app
+from tas_chemoinformatics.util import identifier_mol_mapping
+
+try:
+    from chemfp.commandline import rdkit2fps
+    from chemfp.commandline import simsearch
+except ImportError:
+    pass
 
 # Run using:
 # FLASK_APP=id_mapping/fingerprint_server.py flask run -p 8000
 # OR to support multiple parallel requests to speed things up:
 # PYTHONPATH=id_mapping gunicorn --workers=4 -b 127.0.0.1:8000 -t 600 fingerprint_server:app
 
-app = Flask(__name__)
-
-fp_types = {
-    "topological": ["--RDK"],
-    "morgan": ["--morgan"],
-}
+fp_types = {"topological": ["--RDK"], "morgan": ["--morgan"]}
 
 @app.route("/fingerprints/fingerprint_db", methods=["POST"])
 def fingerprint_db():
@@ -34,7 +36,9 @@ def fingerprint_db():
     cmpd_encoding = request.json["request"]["encoding"]
     fp_type = request.json["request"].get("fingerprint_type", "topological")
     if not fp_type in fp_types:
-        raise ValueError("Invalid fingerprint type, use one of ", str(list(fp_types.keys())))
+        raise ValueError(
+            "Invalid fingerprint type, use one of ", str(list(fp_types.keys()))
+        )
     fp_args = request.json["request"].get("fingerprint_args", [])
     if not isinstance(fp_args, list):
         fp_args = [fp_args]
