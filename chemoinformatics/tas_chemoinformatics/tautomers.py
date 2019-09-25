@@ -19,7 +19,7 @@ def canonicalize(compounds, id_used, standardize=False):
     mol_mapping = identifier_mol_mapping[id_used]
     if standardize:
         standardizer = mol_standardize.Standardizer(prefer_organic=True)
-    res = list()
+    res = {}
     skipped = list()
     # Suppress pesky warning messages
     lg = RDLogger.logger()
@@ -54,23 +54,13 @@ def canonicalize(compounds, id_used, standardize=False):
                 print(
                     f"Can't standardize canonical tautomer for {ms}, using unstandardized version\n{e}"
                 )
-        can_smiles = Chem.MolToSmiles(can)
-        can_inchi = inchi.MolToInchi(can)
-        res.append((ms, can_smiles, can_inchi))
+        res[ms] = can
     return (res, skipped)
 
 
-def tautomerize(compound, id_used, max_tautomers=10):
-    mol = identifier_mol_mapping[id_used](compound)
+def tautomerize(mol, max_tautomers=10):
     tauts = make_tautomers(mol, max_tautomers=max_tautomers)
-    return [
-        {
-            "smiles": Chem.MolToSmiles(t),
-            "inchi": inchi.MolToInchi(t),
-            "inchi_key": inchi.MolToInchiKey(t),
-        }
-        for t in tauts
-    ]
+    return tauts
 
 
 def draw_molecules(compounds, id_used, names=None):

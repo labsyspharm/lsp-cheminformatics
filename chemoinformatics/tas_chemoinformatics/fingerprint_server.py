@@ -7,7 +7,10 @@ import os
 import pickle
 import sys
 import tempfile
-from itertools import izip
+try:
+    from itertools import izip
+except ImportError:
+    pass
 
 import pandas as pd
 from flask import Flask, request, send_file
