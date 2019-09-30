@@ -14,7 +14,7 @@ def client():
 
 def test_tautomerize(client):
     res = client.post(
-        "/query/tautomers",
+        "/tautomers/enumerate",
         json={
             "compounds": {
                 "identifier": "inchi",
@@ -33,7 +33,7 @@ def test_tautomerize(client):
 
 def test_canonicalize(client):
     res = client.post(
-        "/query/canonicalize",
+        "/tautomers/canonicalize",
         json={
             "compounds": {
                 "identifier": "inchi",

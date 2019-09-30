@@ -6,11 +6,12 @@ import gzip
 import os
 import pickle
 import sys
-import tempfile
+from tempfile import NamedTemporaryFile
+
 try:
     from itertools import izip
 except ImportError:
-    pass
+    izip = zip
 
 import pandas as pd
 from flask import Flask, request, send_file
@@ -19,6 +20,8 @@ from rdkit.Chem import inchi
 
 from tas_chemoinformatics import app
 from tas_chemoinformatics.util import identifier_mol_mapping
+
+# from tas_chemoinformatics.schemas import FingerprintDBSchema, FingerprintDBResultSchema
 
 try:
     from chemfp.commandline import rdkit2fps
@@ -33,37 +36,51 @@ except ImportError:
 
 fp_types = {"topological": ["--RDK"], "morgan": ["--morgan"]}
 
+
 @app.route("/fingerprints/fingerprint_db", methods=["POST"])
 def fingerprint_db():
-    cmpd_json = request.json["compounds"]
-    cmpd_encoding = request.json["request"]["encoding"]
-    fp_type = request.json["request"].get("fingerprint_type", "topological")
-    if not fp_type in fp_types:
-        raise ValueError(
-            "Invalid fingerprint type, use one of ", str(list(fp_types.keys()))
-        )
-    fp_args = request.json["request"].get("fingerprint_args", [])
+    """Create database of fingerprints from given compounds.
+    ---
+    post:
+      summary: Create database of fingerprints from given compounds.
+      description: Fingerprint database is returned as base64 encoded database file in fps format.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: FingerprintDBSchema
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: FingerprintDBResultSchema
+    """
+    data = request.json
+    cmpd_data = data["compounds"]
+    id_used = cmpd_data["identifier"]
+    fp_type = data.get("fingerprint_type", "topological")
+    fp_args = data.get("fingerprint_args", [])
     if not isinstance(fp_args, list):
         fp_args = [fp_args]
-    input_df = pd.DataFrame(cmpd_json)
-    if len(input_df) > 100000:
+    cmpd_names = cmpd_data.get("names", list(range(len(cmpd_data["compounds"]))))
+    print("Processing {} compounds fingerprints".format(len(cmpd_data["compounds"])))
+    if len(cmpd_data["compounds"]) > 100000:
         raise ValueError(
-            "input_df must be less than 100.000 rows for performance reasons"
+            "No more than 100,000 compounds per request for performance reasons"
         )
-    print(input_df.head())
-    mol_func = identifier_mol_mapping[cmpd_encoding]
+    mol_func = identifier_mol_mapping[id_used]
     temp_sdf = tempfile.NamedTemporaryFile(mode="wb", suffix=".sdf.gz", delete=False)
     temp_sdf_gz = gzip.GzipFile(fileobj=temp_sdf)
     sdf_writer = Chem.SDWriter(temp_sdf_gz)
     skipped = list()
-    for i, cmpd in enumerate(input_df.itertuples()):
-        if i % 10000 == 0:
+    for i, (n, c) in enumerate(izip(cmpd_names, cmpd_data["compounds"])):
+        if i % 1000 == 0:
             print("{} done".format(i))
-        m = mol_func(str(cmpd.compound), sanitize=True)
+        m = mol_func(str(c), sanitize=True)
         if m is None:
-            skipped.append(cmpd.name)
+            skipped.append(c)
             continue
-        m.SetProp("name", str(cmpd.name))
+        m.SetProp("name", str(n))
         sdf_writer.write(m)
     sdf_writer.close()
     temp_sdf_gz.close()
@@ -78,7 +95,9 @@ def fingerprint_db():
     with open(temp_fps[1], "rb") as f:
         fps_b64 = base64.b64encode(f.read())
     os.remove(temp_fps[1])
-    return {"fps_file": fps_b64, "skipped_compounds": skipped}
+    out = {"fingerprint_db": fps_b64, "skipped": skipped}
+    # FingerprintDBResultSchema().validate(out)
+    return out
 
 
 def pairwise(iterable):
@@ -102,30 +121,56 @@ def parse_sim_result(sim_result_file):
     return zip(*res)
 
 
+def fps_newline(data):
+    if data.endswith("\n"):
+        return data
+    return data + "\n"
+
+
 @app.route("/fingerprints/simsearch", methods=["POST"])
 def fingerprint_search():
-    fingerprint_db = request.files.get("fingerprint_db", None)
-    if not fingerprint_db:
-        raise ValueError("No fingerprint db supplied")
-    fingerprint_query = request.files.get("fingerprint_query", None)
-    threshold = request.form.get("threshold", 0.9)
-    temp_db = tempfile.mkstemp(suffix=".fps")
-    temp_out = tempfile.mkstemp(suffix=".txt")
-    fingerprint_db.save(temp_db[1])
+    """Scan database of fingerprints for matches.
+    ---
+    post:
+      summary: Scan database of fingerprints for matches.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: FingerprintScanSchema
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: FingerprintScanResultSchema
+    """
+    data = request.json
+    fingerprint_db = data["fingerprint_db"]
+    fingerprint_query = data.get("fingerprint_query", None)
+    threshold = data.get("threshold", 0.95)
     print("Starting processing")
-    args = []
-    if fingerprint_query:
-        temp_query = tempfile.mkstemp(suffix=".fps")
-        fingerprint_query.save(temp_query[1])
-        args.extend(["-q", temp_query[1]])
-    else:
-        args.append("--NxN")
-    simsearch.main(
-        args + ["--memory", "-o", temp_out[1], "-t", str(threshold), temp_db[1]]
-    )
-    sim_results = parse_sim_result(temp_out[1])
-    os.remove(temp_out[1])
-    os.remove(temp_db[1])
-    if fingerprint_query:
-        os.remove(temp_query[1])
+    with NamedTemporaryFile(suffix=".fps") as temp_db, NamedTemporaryFile(
+        suffix=".txt"
+    ) as temp_out, NamedTemporaryFile(suffix=".fps") as temp_query:
+        print(
+            "temp_db {}\ntemp_out {}\ntemp_query {}".format(
+                temp_db.name, temp_out.name, temp_query.name
+            )
+        )
+        temp_db.write(fps_newline(base64.b64decode(fingerprint_db)))
+        args = []
+        if fingerprint_query:
+            temp_query.write(fps_newline(base64.b64decode(fingerprint_query)))
+            args.extend(["-q", temp_query.name])
+        else:
+            args.append("--NxN")
+        args.extend(["--memory", "-o", temp_out.name, "-t", threshold, temp_db.name])
+        args = map(str, args)
+        print(args)
+        # Make sure files are completely written to disk
+        for f in [temp_db, temp_out, temp_query]:
+            f.flush()
+            os.fsync(f.fileno())
+        simsearch.main(args)
+        sim_results = parse_sim_result(temp_out.name)
     return {"query": sim_results[0], "match": sim_results[1], "score": sim_results[2]}

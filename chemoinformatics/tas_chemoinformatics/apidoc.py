@@ -9,7 +9,7 @@ import tas_chemoinformatics.schemas as schemas
 
 spec = APISpec(
     title="TAS Chemoinformatics tools",
-    version="0.0.1",
+    version="0.2",
     openapi_version="3.0.2",
     plugins=[FlaskPlugin(), MarshmallowPlugin()]
 )
@@ -27,5 +27,5 @@ with app.test_request_context():
         spec.path(view=p)
 
 if __name__ == "__main__":
-    with open("./doc/apidoc.json", "w") as f:
+    with open("./tas_chemoinformatics/static/apidoc.json", "w") as f:
         json.dump(spec.to_dict(), f)
