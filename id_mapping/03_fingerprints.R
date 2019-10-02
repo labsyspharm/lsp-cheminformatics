@@ -54,48 +54,91 @@ write_csv(
 # Create molecular fingerprints ------------------------------------------------
 ###############################################################################T
 
-plan(multisession, workers = 12)
+fingerprinting_args <- tribble(
+  ~fp_name, ~fp_type, ~fp_args,
+  "morgan_chiral", "morgan", c("--useChirality", "1"),
+  "morgan_normal", "morgan", c("--useChirality", "0")
+)
+
+plan(multisession, workers = 10)
 cmpd_fingerprints <- compounds_canonical %>%
+  select(name = id, compound = inchi) %>%
   # Some HMSL compounds don't report inchi or smiles or anything, should have removed
   # them earlier, removing them here now
   drop_na() %>%
-  select(name = id, compound = inchi) %>%
+  slice(sample(nrow(.))) %>%
+  # slice(1:100) %>%
   split((seq(nrow(.)) - 1) %/% 10000) %>%
   enframe("index", "compounds") %>%
+  mutate(names = map(compounds, "name"), compounds = map(compounds, "compound")) %>%
+  crossing(fingerprinting_args) %>%
   mutate(
-    fingerprint_res = future_map(
-      compounds, get_fingerprints, .progress = TRUE
+    fp_res = future_pmap(
+      select(., compounds, names, fp_type, fp_args),
+      safely(get_fingerprints),
+      .progress = TRUE
     )
   )
-write_rds(cmpd_fingerprints, file.path(dir_release, "all_compounds_fingerprints.rds"))
-# cmpd_fingerprints <- read_rds(file.path(dir_release, "all_compounds_fingerprints.rds"))
 
+write_rds(cmpd_fingerprints, file.path(dir_release, "all_compounds_fingerprints_raw.rds"))
+# cmpd_fingerprints <- read_rds(file.path(dir_release, "all_compounds_fingerprints_raw.rds"))
 
-skipped_cmpds <- cmpd_fingerprints %>%
-  pull("fingerprint_res") %>%
-  map("skipped_compounds") %>%
-  map(as.character) %>%
-  reduce(c)
-
-write_lines(skipped_cmpds, file.path(dir_release, "all_compounds_fingerprints_skipped.txt"))
-
-fingerprint_fps <- cmpd_fingerprints$fingerprint_res %>%
-  map("fps_file") %>%
-  map(rawToChar) %>%
+merge_fp_res <- function(fp_res) {
+  fingerprint_db_lines <- map(fp_res, pluck, "result", "fingerprint_db") %>%
   # split into lines
   map(stringi::stri_split_lines1)
 
-# Have to remove header of all fps files except first one
+  fingerprint_fps_combined <- c(
+    # Keep first file including header
+    fingerprint_db_lines[[1]],
+    # Remaining lines from all files without headers
+    fingerprint_db_lines[-1] %>%
+      # In all following files, discard  header (lines starting with #)
+      map(~.x[!str_starts(.x, fixed("#"))]) %>%
+      # merge all remaining lines
+      {do.call(c, .)}
+  )
 
-fingerprint_fps_combined <- c(
-  fingerprint_fps[[1]],
-  fingerprint_fps[-1] %>%
-    # discard lines starting with #
-    map(~.x[!str_starts(.x, fixed("#"))]) %>%
-    {do.call(c, .)}
+  list(
+    skipped = do.call(c, map(fp_res, pluck, "result", "skipped")),
+    fingerprint_db = fingerprint_fps_combined,
+    error = do.call(c, map(fp_res, pluck, "error"))
+  )
+}
+
+cmpd_fingerprints_all <- cmpd_fingerprints %>%
+  group_by(fp_name, fp_type) %>%
+  summarize(
+    result = list(merge_fp_res(fp_res))
+  ) %>%
+  ungroup() %>%
+  unnest_wider(result)
+
+# Check if any jobs errored out
+cmpd_fingerprints %>%
+  pull("error") %>%
+  map(is.null) %>%
+  as.logical() %>%
+  all()
+
+skipped_cmpds <- cmpd_fingerprints_all %>%
+  unnest(skipped) %>%
+  select(-fingerprint_db)
+
+write_lines(skipped_cmpds, file.path(dir_release, "all_compounds_fingerprints_skipped.txt"))
+
+write_rds(
+  cmpd_fingerprints_all,
+  file.path(dir_release, "all_compounds_fingerprints.rds")
 )
-
-writeLines(fingerprint_fps_combined, file.path(dir_release, "all_compounds_fingerprints.fps"))
+cmpd_fingerprints_all %>%
+  mutate(
+    fn = file.path(
+      dir_release,
+      paste0(paste("all_compounds_fingerprints_fp_type", fp_type, "fp_name", fp_name, sep = "_"), ".fps")
+    )
+  ) %>%
+  {walk2(.$fingerprint_db, .$fn, write_lines)}
 
 # Store to synapse -------------------------------------------------------------
 ###############################################################################T
@@ -109,9 +152,14 @@ fingerprint_activity <- Activity(
   executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/id_mapping/03_fingerprints.R"
 )
 
+synExtra::synPluck(syn_release, "fingerprints")
+fp_folder <- Folder("fingerprints", syn_release) %>%
+  synStore() %>%
+  chuck("properties", "id")
+
 c(
   file.path(dir_release, "all_compounds_fingerprints.rds"),
-  file.path(dir_release, "all_compounds_fingerprints.fps"),
+  Sys.glob(file.path(dir_release, "all_compounds_fingerprints*fps")),
   file.path(dir_release, "all_compounds_canonical.csv.gz")
 ) %>%
-  synStoreMany(parent = syn_release, activity = fingerprint_activity)
+  synStoreMany(parent = fp_folder, activity = fingerprint_activity)

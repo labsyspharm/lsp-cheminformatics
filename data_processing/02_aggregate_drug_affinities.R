@@ -15,31 +15,45 @@ syn_release <- synFindEntityId(release, "syn18457321")
 # set directories & import files -----------------------------------------------
 ###############################################################################T
 
-all_cmpds_eq_classes <- syn("syn20693885") %>%
-  read_csv(col_types = "cci")
+all_cmpds_eq_classes <- syn("syn20830516") %>%
+  read_rds()
 
 biochem_alldata <- syn("syn20693825") %>%
   read_csv(col_types = "iiiicccdciccccicccccii")
 
-biochem_neat <- biochem_alldata %>%
-  rename(pref_name_target = pref_name) %>%
-  filter(tax_id == 9606, !is.na(entrez_gene_id)) %>%
-  left_join(
-    all_cmpds_eq_classes %>%
-      select(id, eq_class),
-    by = c("chembl_id_compound" = "id")
+
+biochem_neat <- all_cmpds_eq_classes %>%
+  mutate(
+    data = map(
+      data,
+      ~biochem_alldata %>%
+        rename(pref_name_target = pref_name) %>%
+        filter(tax_id == 9606, !is.na(entrez_gene_id)) %>%
+        left_join(
+          .x %>%
+            select(id, eq_class),
+          by = c("chembl_id_compound" = "id")
+        )
+    )
   )
+
 
 doseresponse_inhouse <- syn("syn20692433") %>%
   read_csv(col_types = "idcccccicccc")
 
-doseresponse_inhouse_neat <- doseresponse_inhouse %>%
-  mutate(hms_id = paste0("HMSL", hms_id)) %>%
-  rename(entrez_gene_id = gene_id) %>%
-  left_join(
-    all_cmpds_eq_classes %>%
-      select(id, eq_class),
-    by = c("hms_id" = "id")
+doseresponse_inhouse_neat <- all_cmpds_eq_classes %>%
+  mutate(
+    data = map(
+      data,
+      ~doseresponse_inhouse %>%
+        mutate(hms_id = paste0("HMSL", hms_id)) %>%
+        rename(entrez_gene_id = gene_id) %>%
+        left_join(
+          .x %>%
+            select(id, eq_class),
+          by = c("hms_id" = "id")
+        )
+    )
   )
 
 # bind files and make Q1 file --------------------------------------------------
@@ -47,52 +61,83 @@ doseresponse_inhouse_neat <- doseresponse_inhouse %>%
 
 biochem_rowbind <- biochem_neat %>%
   mutate(
-    reference_id = chembl_id_doc,
-    reference_type = "chembl_id",
-    file_url = paste0("https://www.ebi.ac.uk/chembl/document_report_card/",chembl_id_doc),
-    value = standard_value,
-    value_unit = standard_units
-  ) %>%
-  select(eq_class, value, value_unit, uniprot_id, entrez_gene_id, reference_id, reference_type, file_url)
+    data = map(
+      data,
+      ~.x %>%
+        mutate(
+        reference_id = chembl_id_doc,
+        reference_type = "chembl_id",
+        file_url = paste0("https://www.ebi.ac.uk/chembl/document_report_card/",chembl_id_doc),
+        value = standard_value,
+        value_unit = standard_units
+      ) %>%
+        select(eq_class, value, value_unit, uniprot_id, entrez_gene_id, reference_id, reference_type, file_url)
+    )
+  )
+
 
 doseresponse_inhouse_rowbind <- doseresponse_inhouse_neat %>%
   mutate(
-    reference_id = synapse_id,
-    reference_type = "synapse_id"
+    data = map(
+      data,
+      ~.x %>%
+        mutate(
+          reference_id = synapse_id,
+          reference_type = "synapse_id"
+        ) %>%
+        select(eq_class, value, value_unit, uniprot_id, entrez_gene_id, reference_id, reference_type, file_url)
+    )
+  )
+
+complete_table <- biochem_rowbind %>%
+  rename(biochem = data) %>%
+  left_join(
+    doseresponse_inhouse_rowbind %>%
+      rename(inhouse = data)
   ) %>%
-  select(eq_class, value, value_unit, uniprot_id, entrez_gene_id, reference_id, reference_type, file_url)
+  mutate(
+    # Call to distinct important, since some assays can be recorded multiple times
+    # for the same eq_class now, when multiple forms of the same drug where mapped
+    # to the same eq_class and an assay was stored in the db for all forms
+    data = map2(biochem, inhouse, ~bind_rows(.x, .y) %>% distinct())
+  )
 
-complete_table <- bind_rows(
-  biochem_rowbind,
-  doseresponse_inhouse_rowbind
-) %>%
-  # Call to distinct important, since some assays can be recorded multiple times
-  # for the same eq_class now, when multiple forms of the same drug where mapped
-  # to the same eq_class and an assay was stored in the db for all forms
-  distinct()
-
-write_csv(
-  complete_table,
-  file.path(dir_release, "biochemicaldata_complete_inhouse_chembl.csv.gz")
+write_rds(
+  complete_table %>%
+    select(fp_name, fp_type, data),
+  file.path(dir_release, "biochemicaldata_complete_inhouse_chembl.rds"),
+  compress = "gz"
 )
 
 #test: unit
 complete_table$value_unit%>%unique()
 
 # Using data.table here for speed
-complete_table_Q1 <- complete_table %>%
-  data.table::as.data.table() %>%
-  .[
-    ,
-    .(Q1 = round(quantile(value, 0.25, names = FALSE), 2)),
-    by = .(eq_class, entrez_gene_id)
-  ] %>%
-  as_tibble() %>%
-  mutate(binding = if_else(Q1 < 10000, 1L, 0L))
+calculate_q1 <- function(data) {
+  data %>%
+    data.table::as.data.table() %>%
+    .[
+      ,
+      .(Q1 = round(quantile(value, 0.25, names = FALSE), 2)),
+      by = .(eq_class, entrez_gene_id)
+      ] %>%
+    as_tibble() %>%
+    mutate(binding = if_else(Q1 < 10000, 1L, 0L))
+}
 
-write_csv(
-  complete_table_Q1,
-  file.path(dir_release, "biochemicaldata_complete_inhouse_chembl_Q1.csv.gz")
+complete_table_Q1 <- complete_table %>%
+  mutate(
+    data = map(
+      data,
+      calculate_q1
+    )
+  )
+
+write_rds(
+  complete_table_Q1 %>%
+    select(fp_name, fp_type, data),
+  file.path(dir_release, "biochemicaldata_complete_inhouse_chembl_Q1.rds"),
+  compress = "gz"
 )
 
 # Also calculate Q1 values for kinomescan data from HMS LINCS for which no
@@ -137,42 +182,57 @@ hmsl_kinomescan_cleaned <- hmsl_kinomescan %>%
     !grepl("inhibited", description)
   )
 
-hmsl_kinomescan_mapped <- hmsl_kinomescan_cleaned %>%
-  genebabel::join_hgnc(
-    "gene_symbol",
-    c("symbol", "alias_symbol", "prev_symbol"),
-    c("entrez_id", "name", "uniprot_ids")
-  ) %>%
-  # I checked, no gene_symbol maps to multiple uniprot, so this is safe
+hmsl_kinomescan_mapped <- all_cmpds_eq_classes %>%
   mutate(
-    uniprot_id = as.character(uniprot_ids)
-  ) %>%
-  select(-uniprot_ids) %>%
-  left_join(
-    all_cmpds_eq_classes %>%
-      select(id, eq_class),
-    by = c("hms_id" = "id")
-  ) %>%
-  rename(entrez_gene_id = entrez_id, pref_name_cmpd = pref_name, pref_name_target = name) %>%
-  drop_na(entrez_gene_id)
+    data = map(
+      data,
+      ~hmsl_kinomescan_cleaned %>%
+        genebabel::join_hgnc(
+          "gene_symbol",
+          c("symbol", "alias_symbol", "prev_symbol"),
+          c("entrez_id", "name", "uniprot_ids")
+        ) %>%
+        # I checked, no gene_symbol maps to multiple uniprot, so this is safe
+        mutate(
+          uniprot_id = as.character(uniprot_ids)
+        ) %>%
+        select(-uniprot_ids) %>%
+        left_join(
+          .x %>%
+            select(id, eq_class),
+          by = c("hms_id" = "id")
+        ) %>%
+        rename(entrez_gene_id = entrez_id, pref_name_cmpd = pref_name, pref_name_target = name) %>%
+        drop_na(entrez_gene_id)
+    )
+  )
 
-write_csv(
+write_rds(
   hmsl_kinomescan_mapped,
-  file.path(dir_release, "biochemicaldata_single_dose_inhouse.csv.gz")
+  file.path(dir_release, "biochemicaldata_single_dose_inhouse.rds"),
+  compress = "gz"
 )
 
 hmsl_kinomescan_q1 <- hmsl_kinomescan_mapped %>%
-  as.data.table() %>%
-  .[
-    ,
-    .(percent_control_Q1 = quantile(percent_control, 0.25, names = FALSE)),
-    by = .(eq_class, entrez_gene_id, cmpd_conc_nM)
-    ] %>%
-  as_tibble()
+  mutate(
+    data = map(
+      data,
+      ~.x %>%
+        as.data.table() %>%
+        .[
+          ,
+          .(percent_control_Q1 = quantile(percent_control, 0.25, names = FALSE)),
+          by = .(eq_class, entrez_gene_id, cmpd_conc_nM)
+          ] %>%
+        as_tibble()
+    )
+  )
 
-write_csv(
+
+write_rds(
   hmsl_kinomescan_q1,
-  file.path(dir_release, "biochemicaldata_single_dose_inhouse_Q1.csv.gz")
+  file.path(dir_release, "biochemicaldata_single_dose_inhouse_Q1.rds"),
+  compress = "gz"
 )
 
 # Store to synapse -------------------------------------------------------------
@@ -181,7 +241,7 @@ write_csv(
 aggregation_activity <- Activity(
   name = "Aggregate affinity data",
   used = c(
-    "syn20693885",
+    "syn20830516",
     "syn20693825",
     "syn20692433",
     "syn20692432"
@@ -189,10 +249,14 @@ aggregation_activity <- Activity(
   executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/data_processing/02_aggregate_drug_affinities.R"
 )
 
+syn_aggregate <- Folder("aggregate_data", parent = syn_release) %>%
+  synStore() %>%
+  chuck("properties", "id")
+
 c(
-  file.path(dir_release, "biochemicaldata_complete_inhouse_chembl.csv.gz"),
-  file.path(dir_release, "biochemicaldata_complete_inhouse_chembl_Q1.csv.gz"),
-  file.path(dir_release, "biochemicaldata_single_dose_inhouse.csv.gz"),
-  file.path(dir_release, "biochemicaldata_single_dose_inhouse_Q1.csv.gz")
+  file.path(dir_release, "biochemicaldata_complete_inhouse_chembl.rds"),
+  file.path(dir_release, "biochemicaldata_complete_inhouse_chembl_Q1.rds"),
+  file.path(dir_release, "biochemicaldata_single_dose_inhouse.rds"),
+  file.path(dir_release, "biochemicaldata_single_dose_inhouse_Q1.rds")
 ) %>%
-  synStoreMany(parent = syn_release, activity = aggregation_activity)
+  synStoreMany(parent = syn_aggregate, activity = aggregation_activity)
