@@ -6,6 +6,7 @@ import gzip
 import os
 import pickle
 import sys
+import tempfile
 from tempfile import NamedTemporaryFile
 
 try:
@@ -63,13 +64,13 @@ def fingerprint_db():
     if not isinstance(fp_args, list):
         fp_args = [fp_args]
     cmpd_names = cmpd_data.get("names", list(range(len(cmpd_data["compounds"]))))
-    print("Processing {} compounds fingerprints".format(len(cmpd_data["compounds"])))
+    print("Processing {} compound fingerprints".format(len(cmpd_data["compounds"])))
     if len(cmpd_data["compounds"]) > 100000:
         raise ValueError(
             "No more than 100,000 compounds per request for performance reasons"
         )
     mol_func = identifier_mol_mapping[id_used]
-    temp_sdf = tempfile.NamedTemporaryFile(mode="wb", suffix=".sdf.gz", delete=False)
+    temp_sdf = NamedTemporaryFile(mode="wb", suffix=".sdf.gz", delete=False)
     temp_sdf_gz = gzip.GzipFile(fileobj=temp_sdf)
     sdf_writer = Chem.SDWriter(temp_sdf_gz)
     skipped = list()
