@@ -3,6 +3,14 @@ from marshmallow import Schema, fields, validate
 from .util import identifier_mol_mapping
 from .fingerprint_server import fp_types
 
+identifier_field = fields.String(
+    validate=validate.OneOf(identifier_mol_mapping.keys()),
+    required=True,
+    description="The type of compound identifiers used",
+    example="inchi",
+)
+
+skipped_field = fields.List(fields.String, description="A list of compound identifiers that couldn't be processed")
 
 class CompoundsSchema(Schema):
     compounds = fields.List(
@@ -16,12 +24,7 @@ class CompoundsSchema(Schema):
         description="An optional list of compound names",
         example="['Aspirin', 'Dopamine']",
     )
-    identifier = fields.String(
-        validate=validate.OneOf(identifier_mol_mapping.keys()),
-        required=True,
-        description="The type of compound identifiers used",
-        example="inchi",
-    )
+    identifier = identifier_field
 
 
 class TautomerizeSchema(Schema):
@@ -52,7 +55,7 @@ class CanonicalizeResultSchema(Schema):
     canonical = fields.Mapping(
         keys=fields.String, values=fields.Nested(CompoundsSchema), required=True
     )
-    skipped = fields.List(fields.String)
+    skipped = skipped_field
 
 
 class FingerprintDBSchema(Schema):
@@ -77,7 +80,7 @@ class FingerprintDBResultSchema(Schema):
         required=True,
         description="Fingerprint database file in .fps format as base64 encoded string",
     )
-    skipped = fields.List(fields.String)
+    skipped = skipped_field
 
 
 class FingerprintScanSchema(Schema):
@@ -102,3 +105,22 @@ class FingerprintScanResultSchema(Schema):
     query = fields.List(fields.String, required=True)
     match = fields.List(fields.String, required=True)
     score = fields.List(fields.Float, required=True)
+
+
+class ConvertIDSchema(Schema):
+    compounds = fields.Nested(CompoundsSchema, required=True)
+    target_identifier = identifier_field
+
+
+class ConvertIdResultSchema(Schema):
+    compounds = fields.Nested(CompoundsSchema, required=True)
+    skipped = skipped_field
+
+
+class DrawGridSchema(Schema):
+    compounds = fields.Nested(CompoundsSchema, required=True)
+
+
+class DrawGridResultSchema(Schema):
+    svg = fields.String()
+    skipped = skipped_field

@@ -3,7 +3,8 @@ from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Draw, inchi
 
 from tas_chemoinformatics import app
-from .schemas import ConvertIDSchema, ConvertIdResultSchema
+from .schemas import DrawGridSchema, DrawGridResultSchema
+from .draw import draw_molecule_grid
 from .util import identifier_mol_mapping, mol_identifier_mapping
 
 # Run using:
@@ -12,35 +13,36 @@ from .util import identifier_mol_mapping, mol_identifier_mapping
 # gunicorn --workers=4 -b 127.0.0.1:5000 -t 600 tas_chemoinformatics
 
 
-@app.route("/convert/identifiers", methods=["POST"])
-def convert_ids():
-    """Convert compound identifiers.
+@app.route("/draw/grid", methods=["POST"])
+def draw_molecule_grid_route():
+    """Draw grid of molecules.
     ---
     post:
-      summary: Convert compound identifiers.
+      summary: Draw grid of molecules.
       requestBody:
         required: true
         content:
           application/json:
-            schema: ConvertIDSchema
+            schema: DrawGridSchema
       responses:
         '200':
           content:
             application/json:
-              schema: ConvertIdResultSchema
+              schema: DrawGridResultSchema
     """
-    data = ConvertIDSchema().load(request.json)
+    data = DrawGridSchema().load(request.json)
     # print(f"Requested conversion of {format_in} to {format_out}")
+    names = data["compounds"].get("names", list(range(len(data["compounds"]["compounds"]))))
     mol_in_mapping = identifier_mol_mapping[data["compounds"]["identifier"]]
-    mol_out_mapping = mol_identifier_mapping[data["target_identifier"]]
     skipped = []
-    compounds_out = {"compounds": [], "identifier": data["target_identifier"]}
-    for m in data["compounds"]["compounds"]:
+    mols = {}
+    for n, m in zip(names, data["compounds"]["compounds"]):
         try:
             mol = mol_in_mapping(m)
-            compounds_out["compounds"].append(mol_out_mapping(mol))
+            mols[n] = mol
         except Exception as e:
             skipped.append(m)
-    out = {"compounds": compounds_out, "skipped": skipped}
-    ConvertIdResultSchema().validate(out)
+    svg = draw_molecule_grid(list(mols.values()), names=list(mols.keys()))
+    out = {"svg": svg, "skipped": skipped}
+    DrawGridResultSchema().validate(out)
     return out
