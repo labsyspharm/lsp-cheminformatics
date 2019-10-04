@@ -124,3 +124,14 @@ class DrawGridSchema(Schema):
 class DrawGridResultSchema(Schema):
     svg = fields.String()
     skipped = skipped_field
+
+
+class CalculateMassSchema(Schema):
+    compounds = fields.Nested(CompoundsSchema, required=True)
+
+
+class CalculateMassResultSchema(Schema):
+    mass = fields.Mapping(
+        keys=fields.String, values=fields.Float, required=True
+    )
+    skipped = skipped_field

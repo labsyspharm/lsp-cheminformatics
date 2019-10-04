@@ -1,9 +1,10 @@
 from flask import request
 from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem, Draw, inchi
+from rdkit.Chem import AllChem, Draw
+from rdkit.Chem.Descriptors import MolWt
 
 from tas_chemoinformatics import app
-from .schemas import ConvertIDSchema, ConvertIdResultSchema
+from .schemas import ConvertIDSchema, ConvertIdResultSchema, CalculateMassSchema, CalculateMassResultSchema
 from .util import identifier_mol_mapping, mol_identifier_mapping
 
 # Run using:
@@ -12,7 +13,7 @@ from .util import identifier_mol_mapping, mol_identifier_mapping
 # gunicorn --workers=4 -b 127.0.0.1:5000 -t 600 tas_chemoinformatics
 
 
-@app.route("/convert/identifiers", methods=["POST"])
+@app.route("/properties/convert", methods=["POST"])
 def convert_ids():
     """Convert compound identifiers.
     ---
@@ -43,4 +44,36 @@ def convert_ids():
             skipped.append(m)
     out = {"compounds": compounds_out, "skipped": skipped}
     ConvertIdResultSchema().validate(out)
+    return out
+
+@app.route("/properties/mass", methods=["POST"])
+def calculate_mass_route():
+    """Calculate compound molecular mass.
+    ---
+    post:
+      summary: Calculate compound molecular mass.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: CalculateMassSchema
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: CalculateMassResultSchema
+    """
+    data = CalculateMassSchema().load(request.json)
+    # print(f"Requested conversion of {format_in} to {format_out}")
+    mol_in_mapping = identifier_mol_mapping[data["compounds"]["identifier"]]
+    skipped = []
+    mass_out = {}
+    for m in data["compounds"]["compounds"]:
+        try:
+            mol = mol_in_mapping(m)
+            mass_out[m] = MolWt(mol)
+        except Exception as e:
+            skipped.append(m)
+    out = {"mass": mass_out, "skipped": skipped}
+    CalculateMassResultSchema().validate(out)
     return out
