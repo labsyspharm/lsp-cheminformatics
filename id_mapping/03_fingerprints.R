@@ -56,8 +56,9 @@ write_csv(
 
 fingerprinting_args <- tribble(
   ~fp_name, ~fp_type, ~fp_args,
-  "morgan_chiral", "morgan", c("--useChirality", "1"),
-  "morgan_normal", "morgan", c("--useChirality", "0")
+  # "morgan_chiral", "morgan", c("--useChirality", "1"),
+  # "morgan_normal", "morgan", c("--useChirality", "0"),
+  "topological_normal", "topological", NULL
 )
 
 plan(multisession, workers = 10)
@@ -85,9 +86,8 @@ write_rds(cmpd_fingerprints, file.path(dir_release, "all_compounds_fingerprints_
 
 merge_fp_res <- function(fp_res) {
   fingerprint_db_lines <- map(fp_res, pluck, "result", "fingerprint_db") %>%
-  # split into lines
-  map(stringi::stri_split_lines1)
-
+    # split into lines
+    map(stringi::stri_split_lines1)
   fingerprint_fps_combined <- c(
     # Keep first file including header
     fingerprint_db_lines[[1]],
@@ -125,7 +125,7 @@ skipped_cmpds <- cmpd_fingerprints_all %>%
   unnest(skipped) %>%
   select(-fingerprint_db)
 
-write_lines(skipped_cmpds, file.path(dir_release, "all_compounds_fingerprints_skipped.txt"))
+write_csv(skipped_cmpds, file.path(dir_release, "all_compounds_fingerprints_skipped.csv"))
 
 write_rds(
   cmpd_fingerprints_all,
@@ -152,7 +152,6 @@ fingerprint_activity <- Activity(
   executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/id_mapping/03_fingerprints.R"
 )
 
-synExtra::synPluck(syn_release, "fingerprints")
 fp_folder <- Folder("fingerprints", syn_release) %>%
   synStore() %>%
   chuck("properties", "id")

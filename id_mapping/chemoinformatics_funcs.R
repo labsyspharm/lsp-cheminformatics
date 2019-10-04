@@ -119,3 +119,20 @@ draw_compounds <- function(compounds, names = NULL, key = "inchi") {
   )
   content(res, as = "parsed", type = "application/json", encoding = "UTF-8")
 }
+
+calculate_mass <- function(compounds, key = "inchi") {
+  body <- list(
+    compounds = list(
+      compounds = compounds,
+      identifier = key
+    )
+  )
+  res <- POST(
+    "http://127.0.0.1:8000/properties/mass",
+    body = body,
+    encode = "json"
+  )
+  json <- content(res, as = "parsed", type = "application/json", encoding = "UTF-8")
+  json$mass <- tibble(compound = names(json$mass), mass = as.double(json$mass))
+  json
+}

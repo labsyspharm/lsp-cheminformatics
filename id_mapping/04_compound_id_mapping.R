@@ -30,11 +30,13 @@ all_compounds_fingerprints %>%
 
 plan(multisession(workers = 4))
 similarity_res <- all_compounds_fingerprints %>%
+  filter(fp_name == "topological_normal") %>%
   mutate(
     fp_matches = future_map(fn, scan_fingerprint_matches, threshold = 0.9999)
   )
 
 write_rds(similarity_res, file.path(dir_release, "all_compounds_similarity_raw.rds"))
+# similarity_res <- read_rds(file.path(dir_release, "all_compounds_similarity_raw.rds"))
 
 similarity_df <- similarity_res %>%
   mutate_at(vars(fp_matches), map, as_tibble) %>%
@@ -114,6 +116,86 @@ calc_identity_classes <- function(df) {
     mutate(eq_class = as.integer(eq_class))
 }
 
+
+
+# To establish identity between compounds, require that the topological FP
+# matches and one of the Morgan FPs and that their molecular mass is identical
+
+cmpds_canonical <- syn("syn20692514") %>%
+  read_csv()
+
+plan(multisession(workers = 8))
+cmpd_mass <- cmpds_canonical %>%
+  distinct(inchi) %>%
+  drop_na(inchi) %>%
+  # slice(1:100) %>%
+  slice(sample(nrow(.))) %>%
+  pull("inchi") %>%
+  split((seq(length(.)) - 1) %/% 10000) %>%
+  future_map(calculate_mass, .progress = TRUE) %>%
+  map("mass") %>%
+  bind_rows() %>%
+  distinct() %>%
+  left_join(cmpds_canonical, by = c("compound" = "inchi"))
+
+cmpd_mass_map <- cmpd_mass %>%
+  distinct(id, mass)
+
+assign_func <- function(x, y) mutate(x, !!sym(y) := TRUE)
+
+identity_df_combined <- identity_df %>%
+  group_nest(fp_name, fp_type) %>%
+  # Making a column for every combination that just contains true
+  # for joining later
+  mutate(
+    data = map2(data, fp_name, assign_func)
+  ) %>%
+  pull("data") %>%
+  reduce(full_join, by = c("match", "query")) %>%
+  mutate_if(is.logical, replace_na, FALSE) %>%
+  left_join(
+    cmpd_mass_map %>%
+      rename(mass_query = mass),
+    by = c("query" = "id")
+  ) %>%
+  left_join(
+    cmpd_mass_map %>%
+      rename(mass_match = mass),
+    by = c("match" = "id")
+  ) %>%
+  # If masses couldn't be calculated, for
+  mutate(mass_identical = replace_na(mass_query == mass_match, TRUE)) %>%
+  # Here checking if either of the morgan fingerprints is identical AND topological AND mass
+  mutate_at(
+    vars(starts_with("morgan"),  topological_normal),
+    function(...) pmap_lgl(list(...), all),
+    .$topological_normal, .$mass_identical
+  ) %>%
+  # Correcting the 6 crazy cases where morgan_normal is FALSE and morgan_chiral is TRUE
+  # This should be impossible so setting the morgan_normal to TRUE whenever
+  # morgan_chiral is TRUE
+  mutate(
+    morgan_normal = morgan_chiral | morgan_normal
+  )
+
+identity_df_combined_nested <- identity_df_combined %>%
+  select(-starts_with("mass")) %>%
+  gather("fp_name", "is_identical", everything(), -match, -query) %>%
+  mutate(fp_type = str_split_fixed(fp_name, fixed("_"), 2)[, 1]) %>%
+  filter(is_identical) %>%
+  group_nest(fp_type, fp_name)
+
+cmpd_eq_classes <- identity_df_combined_nested %>%
+  mutate(
+    data = map(data, calc_identity_classes)
+  )
+
+# Sanity check equivalence classes ---------------------------------------------
+###############################################################################T
+
+# Checking if the parent_molregno annotation in Chembl is comparable to what we
+# find using our canonicalization followed by fingerprint matching approach.
+
 # Augmenting identity map with data from the Chembl parent annotation
 chembl_cmpds_with_parent <- chembl_cmpds %>%
   filter(molregno != parent_molregno) %>%
@@ -123,25 +205,14 @@ chembl_cmpds_with_parent <- chembl_cmpds %>%
     by = c("parent_molregno" = "molregno")
   ) %>%
   select(molregno, chembl_id, parent_chembl_id, standard_inchi, parent_standard_inchi)
-
-identity_df_augmented <- identity_df %>%
-  bind_rows(
-    chembl_cmpds_with_parent %>%
-      select(query = chembl_id, match = parent_chembl_id) %>%
-      distinct() %>%
-      tidyr::crossing(select(similarity_df, fp_name, fp_type))
-  )
-
-cmpd_eq_classes <- identity_df_augmented %>%
-  group_nest(fp_name, fp_type) %>%
-  mutate(data = map(data, calc_identity_classes))
-
-
-# Sanity check equivalence classes ---------------------------------------------
-###############################################################################T
-
-# Checking if the parent_molregno annotation in Chembl is comparable to what we
-# find using our canonicalization followed by fingerprint matching approach.
+#
+# identity_df_augmented <- identity_df %>%
+#   bind_rows(
+#     chembl_cmpds_with_parent %>%
+#       select(query = chembl_id, match = parent_chembl_id) %>%
+#       distinct() %>%
+#       tidyr::crossing(select(similarity_df, fp_name, fp_type))
+#   )
 
 chembl_cmpds_with_parent_eq_class <- chembl_cmpds_with_parent %>%
   left_join(
@@ -160,7 +231,7 @@ chembl_cmpds_with_parent_eq_class <- chembl_cmpds_with_parent %>%
 # from the eq_class of the compound itself
 chembl_cmpds_with_parent_disagree <- chembl_cmpds_with_parent_eq_class %>%
   filter(eq_class != parent_eq_class)
-# Should be zero
+# Should be zero, some (~200) disagree but that shouldn't be a huge problem
 
 
 # Adding equivalence class for all compounds -----------------------------------
@@ -205,9 +276,9 @@ write_rds(
 ###############################################################################T
 
 # Find canonical member of equivalence class
-# 1. If present, choose member annotated as parent by Chembl
-# 2. Choose member with highest clinical phase
-# 3. Choose member with annotated pref_name
+# 1. Choose member with highest clinical phase
+# 2. Choose member with annotated pref_name
+# 3. If present, choose member annotated as parent by Chembl
 # 4. Choose member with highest n_assays
 # 5. Choose member with lowest id (chembl or HMS)
 find_canonical_member <- function(eq_class_df, compound_df) {
@@ -217,13 +288,13 @@ find_canonical_member <- function(eq_class_df, compound_df) {
       by = "id"
     ) %>%
     mutate(
-      parent_present = if_else(parent_molregno == molregno, NA_integer_, parent_molregno)
+      has_parent = if_else(parent_molregno != molregno, parent_molregno, NA_integer_)
     ) %>%
     as.data.table() %>%
     .[
       ,
       `:=`(
-        annotated_as_parent = as.integer(molregno) %in% parent_present,
+        annotated_as_parent = as.integer(molregno) %in% has_parent,
         annotated_pref_name = !is.na(pref_name),
         annotated_assays = replace_na(n_assays, 0),
         id_number = as.integer(str_extract(id, "\\d+"))
@@ -233,9 +304,9 @@ find_canonical_member <- function(eq_class_df, compound_df) {
     .[
       order(
         eq_class,
-        -annotated_as_parent,
         -max_phase,
         -annotated_pref_name,
+        -annotated_as_parent,
         -annotated_assays,
         -id_number
       ),
@@ -249,7 +320,7 @@ canonical_members <- all_eq_class %>%
     data = map(
       data,
       find_canonical_member,
-      compound_df =   bind_rows(
+      compound_df = bind_rows(
         chembl_cmpds %>%
           select(id = chembl_id, pref_name, max_phase, molregno, parent_molregno, n_assays) %>%
           mutate_if(is.integer64, as.integer),
@@ -375,7 +446,12 @@ canonical_table <- canonical_members %>%
     )
   )
 
-write_rds(canonical_table %>% select(fp_name, fp_type, data), file.path(dir_release, "canonical_table.rds"), compress = "gz")
+write_rds(
+  canonical_table %>%
+    select(fp_name, fp_type, data),
+  file.path(dir_release, "canonical_table.rds"),
+  compress = "gz"
+)
 
 
 # Checking proportion of mapped HMSL ids ---------------------------------------
@@ -387,16 +463,19 @@ canonical_table %>%
   transmute(fp_name, fp_type, lspci_id, chembl_id = !is.na(chembl_id), hms_id = !is.na(hms_id)) %>%
   group_by(fp_name, fp_type, chembl_id, hms_id) %>%
   summarize(n = n())
-# # A tibble: 6 x 5
-# # Groups:   fp_name, fp_type, chembl_id [4]
-# fp_name       fp_type chembl_id hms_id       n
-# <chr>         <chr>   <lgl>     <lgl>    <int>
-# 1 morgan_chiral morgan  FALSE     TRUE       175
-# 2 morgan_chiral morgan  TRUE      FALSE  1731552
-# 3 morgan_chiral morgan  TRUE      TRUE      1806
-# 4 morgan_normal morgan  FALSE     TRUE        87
-# 5 morgan_normal morgan  TRUE      FALSE  1669520
-# 6 morgan_normal morgan  TRUE      TRUE      1876
+# # A tibble: 9 x 5
+# # Groups:   fp_name, fp_type, chembl_id [6]
+# fp_name            fp_type     chembl_id hms_id       n
+# <chr>              <chr>       <lgl>     <lgl>    <int>
+# 1 morgan_chiral      morgan      FALSE     TRUE       183
+# 2 morgan_chiral      morgan      TRUE      FALSE  1757877
+# 3 morgan_chiral      morgan      TRUE      TRUE      1799
+# 4 morgan_normal      morgan      FALSE     TRUE        94
+# 5 morgan_normal      morgan      TRUE      FALSE  1696169
+# 6 morgan_normal      morgan      TRUE      TRUE      1871
+# 7 topological_normal topological FALSE     TRUE        94
+# 8 topological_normal topological TRUE      FALSE  1694947
+# 9 topological_normal topological TRUE      TRUE      1871
 
 rt_map <- read_csv(
   here("rt_chembl_matches_20190617.txt")
@@ -413,23 +492,28 @@ canonical_table %>%
   mutate(chembl_id_legacy = map_lgl(chembl_id_legacy, negate(is.null))) %>%
   group_by(fp_name, fp_type, hms_id, chembl_id, chembl_id_legacy) %>%
   summarize(n = n())
-# # A tibble: 10 x 6
-# # Groups:   fp_name, fp_type, hms_id, chembl_id [6]
-# fp_name       fp_type hms_id chembl_id chembl_id_legacy       n
-# <chr>         <chr>   <lgl>  <lgl>     <lgl>              <int>
-# 1 morgan_chiral morgan  FALSE  TRUE      FALSE            1731552
-# 2 morgan_chiral morgan  TRUE   FALSE     FALSE                158
-# 3 morgan_chiral morgan  TRUE   FALSE     TRUE                  17
-# 4 morgan_chiral morgan  TRUE   TRUE      FALSE               1517
-# 5 morgan_chiral morgan  TRUE   TRUE      TRUE                 289
-# 6 morgan_normal morgan  FALSE  TRUE      FALSE            1669520
-# 7 morgan_normal morgan  TRUE   FALSE     FALSE                 86
-# 8 morgan_normal morgan  TRUE   FALSE     TRUE                   1
-# 9 morgan_normal morgan  TRUE   TRUE      FALSE               1572
-# 10 morgan_normal morgan  TRUE   TRUE      TRUE                 304
+# # A tibble: 15 x 6
+# # Groups:   fp_name, fp_type, hms_id, chembl_id [9]
+# fp_name            fp_type     hms_id chembl_id chembl_id_legacy       n
+# <chr>              <chr>       <lgl>  <lgl>     <lgl>              <int>
+#   1 morgan_chiral      morgan      FALSE  TRUE      FALSE            1757877
+# 2 morgan_chiral      morgan      TRUE   FALSE     FALSE                166
+# 3 morgan_chiral      morgan      TRUE   FALSE     TRUE                  17
+# 4 morgan_chiral      morgan      TRUE   TRUE      FALSE               1510
+# 5 morgan_chiral      morgan      TRUE   TRUE      TRUE                 289
+# 6 morgan_normal      morgan      FALSE  TRUE      FALSE            1696169
+# 7 morgan_normal      morgan      TRUE   FALSE     FALSE                 93
+# 8 morgan_normal      morgan      TRUE   FALSE     TRUE                   1
+# 9 morgan_normal      morgan      TRUE   TRUE      FALSE               1567
+# 10 morgan_normal      morgan      TRUE   TRUE      TRUE                 304
+# 11 topological_normal topological FALSE  TRUE      FALSE            1694947
+# 12 topological_normal topological TRUE   FALSE     FALSE                 93
+# 13 topological_normal topological TRUE   FALSE     TRUE                   1
+# 14 topological_normal topological TRUE   TRUE      FALSE               1567
+# 15 topological_normal topological TRUE   TRUE      TRUE                 304
 
 # Only 1 compounds frorm HMSL not mapped to Chembl that where found in previous
-# version. But 1572 additional compounds in new version (in non-chiral mode)
+# version. But 1567 additional compounds in new version (in non-chiral mode)
 
 # Making non-canonical compound table ------------------------------------------
 ###############################################################################T
@@ -470,9 +554,10 @@ write_rds(
 cmpd_wrangling_activity <- Activity(
   name = "Map and wrangle compound IDs",
   used = c(
-    "syn20692510",
-    "syn20692440",
+    "syn20692501",
     "syn20692443",
+    "syn20692440",
+    "syn20692514",
     "syn20692514"
   ),
   executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/id_mapping/04_compound_id_mapping.R"
