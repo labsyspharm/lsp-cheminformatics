@@ -272,6 +272,8 @@ write_rds(
   compress = "gz"
 )
 
+# all_eq_class <- read_rds(file.path(dir_release, "all_compounds_equivalence_classes.rds"))
+
 # Finding canonical member of equivalence class --------------------------------
 ###############################################################################T
 
@@ -453,6 +455,8 @@ write_rds(
   compress = "gz"
 )
 
+# canonical_table <- read_rds(file.path(dir_release, "canonical_table.rds"))
+
 
 # Checking proportion of mapped HMSL ids ---------------------------------------
 ###############################################################################T
@@ -518,33 +522,28 @@ canonical_table %>%
 # Making non-canonical compound table ------------------------------------------
 ###############################################################################T
 
-create_non_canonical_table <- function(canonical_table, all_eq_class, cmpd_inchis) {
+create_non_canonical_table <- function(all_eq_class, cmpd_inchis) {
   all_eq_class %>%
-    filter(!(id %in% canonical_table$chembl_id), !(id %in% canonical_table$hms_id)) %>%
     left_join(
       cmpd_inchis %>%
         distinct(id, inchi),
       by = "id"
-    )
+    ) %>%
+    rename(lspci_id = eq_class)
 }
 
-alt_table <- canonical_table %>%
-  left_join(
-    all_eq_class %>%
-      rename(eq_class = data),
-    by = c("fp_name", "fp_type")
-  ) %>%
+alt_table <- all_eq_class %>%
   mutate(
-    data = map2(
-      data, eq_class,
+    data = map(
+      data,
       create_non_canonical_table,
       cmpd_inchis = cmpd_inchis_raw
     )
   )
 
 write_rds(
-  alt_table %>% select(fp_name, fp_type, data),
-  file.path(dir_release, "alternate_table.rds"),
+  alt_table,
+  file.path(dir_release, "compound_mapping.rds"),
   compress =  "gz"
 )
 
@@ -568,10 +567,10 @@ syn_id_mapping <- Folder("id_mapping", parent = syn_release) %>%
   chuck("properties", "id")
 
 c(
-  file.path(dir_release, "all_compounds_similarity.csv.gz"),
-  file.path(dir_release, "canonical_table.rds"),
-  file.path(dir_release, "alternate_table.rds"),
-  file.path(dir_release, "all_compounds_equivalence_classes.rds")
+  # file.path(dir_release, "all_compounds_similarity.csv.gz"),
+  # file.path(dir_release, "canonical_table.rds"),
+  # file.path(dir_release, "all_compounds_equivalence_classes.rds"),
+  file.path(dir_release, "compound_mapping.rds")
 ) %>%
   synStoreMany(parent = syn_id_mapping, activity = cmpd_wrangling_activity)
 
