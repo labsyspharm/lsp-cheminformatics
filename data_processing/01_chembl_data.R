@@ -139,6 +139,8 @@ units_per_assay<-dbGetQuery(con, paste0("select assay_id, count(distinct(standar
                                         group by assay_id
                                         "))
 assays_qualified <- units_per_assay %>%
+  # We only allow a single unit used in each assay to make sure all measurements
+  # within the assay are comparable
   filter(count_units == 1) %>%
   filter(count_molregno > 2)
 
@@ -195,12 +197,32 @@ activities_2<-dbGetQuery(con, paste0("select A.doc_id, ACT.activity_id, A.assay_
 
 dim(activities_2)
 
-pheno_activities<-activities_1
+# Normalize all units to nM, saving the factors here
+standard_unit_map <- c(
+  'M' = 10^9,
+  'mol/L' = 10^9,
+  'nM' = 1,
+  'nmol/L' = 1,
+  'nmol.L-1' = 1,
+  'pM' = 10^-3,
+  'pmol/L' = 10^-3,
+  'pmol/ml' = 1,
+  'um' = 10^3,
+  'uM' = 10^3,
+  'umol/L' = 10^3,
+  'umol/ml' = 10^6,
+  'umol/uL' = 10^9
+)
 
-pheno_activities$log10_value<-log10(pheno_activities$standard_value)
-pheno_activities<-pheno_activities%>%drop_na(log10_value)%>%filter(standard_units %in% standard_units_ok)
-
-dim(pheno_activities)
+pheno_activities <- activities_1 %>%
+  mutate(
+    standard_value = standard_value * standard_unit_map[standard_units],
+    log10_value = log10(standard_value * standard_unit_map[standard_units]),
+    standard_units = "nM"
+  ) %>%
+  drop_na(log10_value) %>%
+  filter(standard_units %in% standard_units_ok) %>%
+  as_tibble()
 
 write_csv(
   pheno_activities,
@@ -233,7 +255,7 @@ fetch_chembl_activity <- Activity(
   executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/data_processing/01_chembl_data.R"
 )
 
-list(
+c(
   file.path(dir_release, "chembl_biochemicaldata.csv.gz"),
   file.path(dir_release, "chembl_phenotypic_assaydata.csv.gz"),
   file.path(dir_release, "chembl_approval_info_phase1to4cmpds.csv.gz")

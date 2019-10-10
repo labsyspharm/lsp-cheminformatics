@@ -21,7 +21,6 @@ all_cmpds_eq_classes <- syn("syn20830516") %>%
 biochem_alldata <- syn("syn20693825") %>%
   read_csv(col_types = "iiiicccdciccccicccccii")
 
-
 biochem_neat <- all_cmpds_eq_classes %>%
   mutate(
     data = map(
@@ -36,7 +35,6 @@ biochem_neat <- all_cmpds_eq_classes %>%
         )
     )
   )
-
 
 doseresponse_inhouse <- syn("syn20692433") %>%
   read_csv(col_types = "idcccccicccc")
@@ -56,7 +54,23 @@ doseresponse_inhouse_neat <- all_cmpds_eq_classes %>%
     )
   )
 
-# bind files and make Q1 file --------------------------------------------------
+pheno_data <- syn("syn20693827") %>%
+  read_csv(col_types = "iiiicccdciccccd")
+
+pheno_data_neat <- all_cmpds_eq_classes %>%
+  mutate(
+    data = map(
+      data,
+      ~pheno_data %>%
+        left_join(
+          .x %>%
+            select(id, eq_class),
+          by = c("chembl_id_compound" = "id")
+        )
+    )
+  )
+
+# Aggregate dose-response data -------------------------------------------------
 ###############################################################################T
 
 biochem_rowbind <- biochem_neat %>%
@@ -139,6 +153,10 @@ write_rds(
   file.path(dir_release, "biochemicaldata_complete_inhouse_chembl_Q1.rds"),
   compress = "gz"
 )
+
+# Aggregate single-dose data ---------------------------------------------------
+###############################################################################T
+
 
 # Also calculate Q1 values for kinomescan data from HMS LINCS for which no
 # complete dose response curve is available
@@ -235,16 +253,44 @@ write_rds(
   compress = "gz"
 )
 
+# Aggregate phenotypic data ----------------------------------------------------
+###############################################################################T
+
+pheno_data_q1 <- pheno_data_neat %>%
+  mutate(
+    data = map(
+      data,
+      ~.x %>%
+        as.data.table() %>%
+        .[
+          ,
+          .(
+            standard_value_Q1 = quantile(standard_value, 0.25, names = FALSE),
+            log10_value_Q1 = quantile(log10_value, 0.25, names = FALSE)
+          ),
+          keyby = .(eq_class, assay_id)
+          ] %>%
+        as_tibble()
+    )
+  )
+
+write_rds(
+  pheno_data_q1,
+  file.path(dir_release, "pheno_data_Q1.rds"),
+  compress = "gz"
+)
+
 # Store to synapse -------------------------------------------------------------
 ###############################################################################T
 
 aggregation_activity <- Activity(
   name = "Aggregate affinity data",
   used = c(
-    "syn20830516",
-    "syn20693825",
+    "syn20692432",
     "syn20692433",
-    "syn20692432"
+    "syn20693825",
+    "syn20693827",
+    "syn20830516"
   ),
   executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/data_processing/02_aggregate_drug_affinities.R"
 )
@@ -257,6 +303,7 @@ c(
   file.path(dir_release, "biochemicaldata_complete_inhouse_chembl.rds"),
   file.path(dir_release, "biochemicaldata_complete_inhouse_chembl_Q1.rds"),
   file.path(dir_release, "biochemicaldata_single_dose_inhouse.rds"),
-  file.path(dir_release, "biochemicaldata_single_dose_inhouse_Q1.rds")
+  file.path(dir_release, "biochemicaldata_single_dose_inhouse_Q1.rds"),
+  file.path(dir_release, "pheno_data_Q1.rds")
 ) %>%
   synStoreMany(parent = syn_aggregate, activity = aggregation_activity)
