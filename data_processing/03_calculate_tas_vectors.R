@@ -122,9 +122,13 @@ hmsl_kinomescan_tas %>%
   ] %>%
   .[
     ,
-    sum(n)
+    sum(n),
+    keyby = .(fp_name, fp_type)
   ]
-# [1] 82
+# fp_name     fp_type V1
+# 1:      morgan_chiral      morgan 42
+# 2:      morgan_normal      morgan 42
+# 3: topological_normal topological 42
 # Thre are a few cases where there is contradicting info.
 # In this case, take the minimum TAS. According to Nienke false positives
 # are less likely than false negatives so this seems like the prudent approach.
@@ -184,12 +188,12 @@ combined_q1 <- complete_table_tas %>%
 
 
 # Again checking for cases where we get contradictory results
-combined_q1 %>%
-  filter(tas_affinity != tas_single_dose)
-
-combined_q1 %>%
-  filter(tas_affinity > tas_literature) %>%
-  View()
+# combined_q1 %>%
+#   filter(tas_affinity != tas_single_dose)
+#
+# combined_q1 %>%
+#   filter(tas_affinity > tas_literature) %>%
+#   View()
 
 # Prefer results from full affinity measuremennts over the percent inhibition
 # When incorporating Verena's manual annotatations, prefer affinity data.
@@ -213,7 +217,7 @@ combined_q1_agg <- combined_q1 %>%
 gene_map <- syn("syn20693721") %>%
   read_csv(col_types = "ciciccciccccc")
 
-compound_map <- syn("syn20692551") %>%
+compound_map <- syn("syn20835543") %>%
   read_rds()
 
 tas_vector <- combined_q1_agg %>%
@@ -332,7 +336,7 @@ tas_activity <- Activity(
     "syn20830516",
     "syn20694521",
     "syn20693721",
-    "syn20692551"
+    "syn20835543"
   ),
   executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/data_processing/03_calculate_tas_vectors.R"
 )
