@@ -253,15 +253,6 @@ selectivity_classes <- toolscore_all %>%
     )
   )
 
-write_rds(
-  selectivity_classes %>%
-    select(-result),
-  file.path(dir_release, "selectivity_classes.rds"),
-  compress = "gz"
-)
-
-selectivity_classes <- read_rds(file.path(dir_release, "selectivity_classes.rds"))
-
 # Combine classes in single table ----------------------------------------------
 ###############################################################################T
 
@@ -306,12 +297,21 @@ selectivity_classes_long <- selectivity_classes %>%
       )
   )
 
-pwalk(
-  selectivity_classes_long,
-  function(fp_name, selectivity, ...) {
-    write_csv(selectivity, file.path(dir_release, paste0("selectivity_classes_", fp_name, ".csv.gz")))
-  }
+write_rds(
+  selectivity_classes_long %>%
+    select(fp_name, fp_type, data = selectivity),
+  file.path(dir_release, "selectivity_classes.rds"),
+  compress = "gz"
 )
+
+# selectivity_classes <- read_rds(file.path(dir_release, "selectivity_classes.rds"))
+
+# pwalk(
+#   selectivity_classes_long,
+#   function(fp_name, selectivity, ...) {
+#     write_csv(selectivity, file.path(dir_release, paste0("selectivity_classes_", fp_name, ".csv.gz")))
+#   }
+# )
 
 # Store to synapse -------------------------------------------------------------
 ###############################################################################T
@@ -331,9 +331,9 @@ syn_selectivity_folder <- Folder("selectivity", parent = syn_release) %>%
   chuck("properties", "id")
 
 c(
-  # file.path(dir_release, "selectivity.rds"),
-  # file.path(dir_release, "selectivity_classes.rds"),
-  Sys.glob(file.path(dir_release, "selectivity_classes_*.csv.gz"))
+  file.path(dir_release, "selectivity.rds"),
+  file.path(dir_release, "selectivity_classes.rds")
+  # Sys.glob(file.path(dir_release, "selectivity_classes_*.csv.gz"))
 ) %>%
   synStoreMany(parentId = syn_selectivity_folder, activity = selectivity_calc_activity)
 

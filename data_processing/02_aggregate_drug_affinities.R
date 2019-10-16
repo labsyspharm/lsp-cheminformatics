@@ -85,7 +85,13 @@ biochem_rowbind <- biochem_neat %>%
         value = standard_value,
         value_unit = standard_units
       ) %>%
-        select(eq_class, value, value_unit, uniprot_id, entrez_gene_id, reference_id, reference_type, file_url)
+        select(
+          lspci_id = eq_class,
+          value, value_unit = standard_units, value_type = standard_type,
+          value_relation = standard_relation, description_assay = description,
+          uniprot_id, entrez_gene_id,
+          reference_id, reference_type, file_url
+        )
     )
   )
 
@@ -99,7 +105,13 @@ doseresponse_inhouse_rowbind <- doseresponse_inhouse_neat %>%
           reference_id = synapse_id,
           reference_type = "synapse_id"
         ) %>%
-        select(eq_class, value, value_unit, uniprot_id, entrez_gene_id, reference_id, reference_type, file_url)
+        select(
+          lspci_id = eq_class,
+          value, value_unit, value_type,
+          value_relation, description_assay = description,
+          uniprot_id, entrez_gene_id,
+          reference_id, reference_type, file_url
+        )
     )
   )
 
@@ -220,7 +232,12 @@ hmsl_kinomescan_mapped <- all_cmpds_eq_classes %>%
             select(id, eq_class),
           by = c("hms_id" = "id")
         ) %>%
-        rename(entrez_gene_id = entrez_id, pref_name_cmpd = pref_name, pref_name_target = name) %>%
+        rename(
+          entrez_gene_id = entrez_id,
+          pref_name_cmpd = pref_name,
+          pref_name_target = name,
+          lspci_id = eq_class
+        ) %>%
         drop_na(entrez_gene_id)
     )
   )
@@ -255,6 +272,31 @@ write_rds(
 
 # Aggregate phenotypic data ----------------------------------------------------
 ###############################################################################T
+
+pheno_data_formatted <- pheno_data_neat %>%
+  mutate(
+    data = map(
+      data,
+      ~.x %>%
+        mutate(
+          reference_id = chembl_id_doc,
+          reference_type = "chembl_id",
+          file_url = paste0("https://www.ebi.ac.uk/chembl/document_report_card/", chembl_id_doc)
+        ) %>%
+        select(
+          lspci_id = eq_class,
+          value = standard_value, value_unit = standard_units, value_type = standard_type,
+          value_relation = standard_relation, description_assay = description,
+          reference_id, reference_type, file_url
+        )
+    )
+  )
+
+write_rds(
+  pheno_data_formatted,
+  file.path(dir_release, "pheno_data.rds"),
+  compress = "gz"
+)
 
 pheno_data_q1 <- pheno_data_neat %>%
   mutate(
@@ -304,6 +346,7 @@ c(
   file.path(dir_release, "biochemicaldata_complete_inhouse_chembl_Q1.rds"),
   file.path(dir_release, "biochemicaldata_single_dose_inhouse.rds"),
   file.path(dir_release, "biochemicaldata_single_dose_inhouse_Q1.rds"),
+  file.path(dir_release, "pheno_data.rds"),
   file.path(dir_release, "pheno_data_Q1.rds")
 ) %>%
   synStoreMany(parent = syn_aggregate, activity = aggregation_activity)
