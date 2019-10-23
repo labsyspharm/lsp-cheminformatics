@@ -284,7 +284,8 @@ pfp_data <- pheno_data %>%
   )
 
 # paste -d , pfp_sim_adjacency_raw_morgan_normal.rds.csv pfp_sim_cosine_raw_morgan_normal.rds.csv | awk -v FS=, 'BEGIN{OFS=","}$1 != $4 || $2 != $5{exit("error")} $3 >= 5{print $1, $2, $3, $6}'
-
+# echo 'lspci_1_id,lspci_2_id,n_common,correlation' > header
+# gunzip -cd pfp_sim_cosine_filtered_morgan_normal.csv.gz | gtail -n +2 | gcat header - | pigz
 
 # Store to synapse -------------------------------------------------------------
 ###############################################################################T
@@ -304,7 +305,8 @@ syn_pfp_sim <- Folder("pfp_similarity", parent = syn_release) %>%
 c(
   file.path(dir_release, "pfp_sim_cosine_filtered_morgan_normal.csv.gz"),
   file.path(dir_release, "pfp_sim_adjacency_raw.rds"),
-  file.path(dir_release, "pfp_sim_cosine_raw.rds")
+  file.path(dir_release, "pfp_sim_cosine_raw.rds"),
+  file.path(dir_release, "pfp_sim_cosine_formatted_morgan_normal.csv.gz")
 ) %>%
   synStoreMany(parent = syn_pfp_sim, activity = pfp_activity)
 
