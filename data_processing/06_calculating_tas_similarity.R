@@ -7,6 +7,8 @@ library(furrr)
 library(synapser)
 library(synExtra)
 library(ssh)
+library(Matrix)
+library(sparseMatrixStats)
 
 synLogin()
 syn <- synDownloader(here("tempdl"))
@@ -27,32 +29,47 @@ tas <- syn("syn20830939") %>%
 
 local_tmp <- tempdir()
 
-nest_tas_df <- function(tas_df) {
-  tas_df %>%
-    group_nest(lspci_id) %>%
-    # Check for each compound if it has at least one assertion< 10
-    mutate(
-      binding = map(data, "tas") %>%
-        map(magrittr::is_less_than, 10) %>%
-        map_lgl(any)
-    )
+make_sparse_matrix <- function(dims, x) {
+  dim_factor <- map(dims, as.factor)
+  sparseMatrix(
+    as.integer(dim_factor[[1]]), as.integer(dim_factor[[2]]), x = x,
+    dimnames = map(dim_factor, levels)
+  )
 }
 
-tas_split <- tas %>%
+split_sparse_matrix_cols <- function(mat, n) {
+  row_seq <- seq_len(ncol(mat))
+  idx <- split(row_seq, cut(row_seq, n, labels = FALSE))
+  map(
+    idx,
+    ~mat[, .x]
+  )
+}
+
+tas_sparse <- tas %>%
   filter(fp_type == "morgan") %>%
   mutate(
     data = map(
       data,
-      nest_tas_df
-    ) %>%
-      map(
-        ~split(.x, cut(seq_len(nrow(.x)), 10, labels = FALSE)) %>%
-          enframe("piece_id", "piece")
+      ~make_sparse_matrix(
+        list(gene_id = .x$entrez_gene_id, compound_id = .x$lspci_id),
+        .x$tas
       )
+    )
+  )
+
+tas_split <- tas_sparse %>%
+  mutate(
+    data = map(
+      data,
+      split_sparse_matrix_cols,
+      n = 10
+    ) %>%
+      map(enframe, "piece_id", "piece")
   ) %>%
   unnest(data) %>%
   mutate(
-    fn = file.path(local_tmp, paste0("tas_", fp_name, "_", piece_id, ".rds"))
+    fn = file.path(local_tmp, paste0("tas_matrix_", fp_name, "_", piece_id, ".rds"))
   )
 
 pwalk(
@@ -61,7 +78,7 @@ pwalk(
     write_rds(piece, fn, compress = "gz")
 )
 
-# write_rds(tas_split$piece[[1]] %>% head(n = 100), file.path(local_tmp, "test.rds"))
+# write_rds(tas_split$piece[[1]][, 1:100], file.path(local_tmp, "test.rds"))
 
 # Submit similarity jobs to O2 -------------------------------------------------
 ###############################################################################T
@@ -85,7 +102,7 @@ cmds <- tas_split %>%
   ) %>%
   unnest(combinations) %>%
   mutate(
-    V3 = paste0("tas_sim_res_", fp_name, "_", 1:n(), ".fps")
+    V3 = paste0("tas_sim_res_", fp_name, "_", 1:n(), ".csv")
   ) %>%
   mutate(
     cmd = paste("sbatch", "06_calculating_tas_similarity_processing.sh", V1, V2, V3)
@@ -94,6 +111,5 @@ cmds <- tas_split %>%
 
 # Copy submission commands for execution on cluster
 cmds$cmd %>% clipr::write_clip()
-
 
 
