@@ -6,6 +6,7 @@ library(here)
 library(furrr)
 library(synapser)
 library(synExtra)
+library(ssh)
 
 synLogin()
 syn <- synDownloader(here("tempdl"))
@@ -21,97 +22,78 @@ tas <- syn("syn20830939") %>%
   read_rds()
 
 
-# Calculate similarity ---------------------------------------------------------
+# Prepare and split files ------------------------------------------------------
 ###############################################################################T
 
-# create_sparse_mat <- function(df) {
-#   coords <- df %>%
-#     mutate(
-#       i = as.factor(entrez_gene_id),
-#       j = as.factor(lspci_id)
-#     )
-#   sparseMatrix(
-#     as.integer(coords$i), as.integer(coords$j),
-#     x = coords$tas,
-#     dimnames = list(
-#       "targets" = levels(coords$i),
-#       "compounds" = levels(coords$j)
-#     )
-#   )
-# }
-#
-# tas_sparse_mat <- tas %>%
-#   mutate(
-#     data = map(
-#       data,
-#       create_sparse_mat
-#     )
-#   )
+local_tmp <- tempdir()
 
-calculate_weighted_jaccard <- function(x1, x2) {
-  x <- inner_join(x1, x2, by = "entrez_gene_id")
-  if(nrow(x) < 5)
-    return(NULL)
-  xf <- x %>%
-    filter(tas.x < 10 | tas.y < 10)
-  sum_min <- sum(pmin(xf$tas.x, xf$tas.y))
-  sum_max <- sum(pmax(xf$tas.x, xf$tas.y))
-  list(
-    n_pairs = nrow(xf),
-    n_pairs_prior = nrow(x),
-    tas_similarity = sum_min/sum_max
-  )
-}
-
-process_tas_sim <- function(df_split, output) {
-  n <- nrow(df_split)
-  idx <- 1
-  res_list <- list()
-  # browser()
-  for (i in seq(1, n - 1)) {
-    message(i)
-    for (j in seq(i + 1, n)) {
-      if (!any(df_split[["binding"]][c(i, j)]))
-        # In this case, none of the two compounds have a binding assertion, skipping
-        # message("skip")
-        next
-      res <- calculate_weighted_jaccard(df_split[["data"]][[i]], df_split[["data"]][[j]])
-      if (!is.null(res)) {
-        res$lspci_id_1 <- df_split[["lspci_id"]][[i]]
-        res$lspci_id_2 <- df_split[["lspci_id"]][[j]]
-        res_list[[idx]] <- res
-        idx <- idx + 1
-      }
-    }
-  }
-  res_list %>%
-    rbindlist() %>%
-    fwrite(output, append = TRUE)
+nest_tas_df <- function(tas_df) {
+  tas_df %>%
+    group_nest(lspci_id) %>%
+    # Check for each compound if it has at least one assertion< 10
+    mutate(
+      binding = map(data, "tas") %>%
+        map(magrittr::is_less_than, 10) %>%
+        map_lgl(any)
+    )
 }
 
 tas_split <- tas %>%
-  filter(fp_name == "morgan_normal") %>%
+  filter(fp_type == "morgan") %>%
   mutate(
     data = map(
       data,
-      group_nest,
-      lspci_id
+      nest_tas_df
     ) %>%
-      # Check for each compound if it has at least one assertion< 10
       map(
-        function (x) mutate(x, binding = map(data, "tas") %>% map(magrittr::is_less_than, 10) %>% map_lgl(any))
+        ~split(.x, cut(seq_len(nrow(.x)), 10, labels = FALSE)) %>%
+          enframe("piece_id", "piece")
       )
-  )
-
-tas_sim <- tas_split %>%
+  ) %>%
+  unnest(data) %>%
   mutate(
-    data = map2(
-      data, paste0("tas_similarity_", fp_name, ".csv"),
-      process_tas_sim
-    )
+    fn = file.path(local_tmp, paste0("tas_", fp_name, "_", piece_id, ".rds"))
   )
 
-# write_rds(tas_sim, "tas_similarity.rds")
-# sbatch --time=72:00:00 -p medium --mem=20000 --wrap 'Rscript 06_calculating_tas_similarity.R'
+pwalk(
+  tas_split,
+  function(piece, fn, ...)
+    write_rds(piece, fn, compress = "gz")
+)
+
+# write_rds(tas_split$piece[[1]] %>% head(n = 100), file.path(local_tmp, "test.rds"))
+
+# Submit similarity jobs to O2 -------------------------------------------------
+###############################################################################T
+
+session <- ssh_connect("ch305@o2.hms.harvard.edu", keyfile = "~/.ssh/id_ecdsa")
+remote_wd <- file.path("/n", "scratch2", "ch305", paste0("tas_sim_", lubridate::now() %>% str_replace(" ", "_")))
+# remote_wd <- "/n/scratch2/ch305/tas_sim_2019-10-22_18:25:49"
+
+ssh_exec_wait(session, paste0("mkdir -p ", remote_wd))
+
+scp_upload(session, tas_split$fn, remote_wd)
+
+scp_upload(session, Sys.glob(here("data_processing", "06_calculating_tas_similarity_processing.*")), remote_wd)
+
+# devtools::install_github("randy3k/arrangements")
+cmds <- tas_split %>%
+  select(fp_name, fp_type, fn, piece_id) %>%
+  group_by(fp_name, fp_type) %>%
+  summarize(
+    combinations = list(arrangements::combinations(basename(fn), 2, replace = TRUE) %>% as_tibble())
+  ) %>%
+  unnest(combinations) %>%
+  mutate(
+    V3 = paste0("tas_sim_res_", fp_name, "_", 1:n(), ".fps")
+  ) %>%
+  mutate(
+    cmd = paste("sbatch", "06_calculating_tas_similarity_processing.sh", V1, V2, V3)
+  ) %>%
+  ungroup()
+
+# Copy submission commands for execution on cluster
+cmds$cmd %>% clipr::write_clip()
+
 
 
