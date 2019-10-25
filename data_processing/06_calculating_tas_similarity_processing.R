@@ -14,13 +14,12 @@ argv <- parse_args(p)
 
 
 calculate_weighted_jaccard <- function(x1, x2) {
-  x <- inner_join(x1, x2, by = "entrez_gene_id")
-  if(nrow(x) < 5)
+  x <- x1[x2, nomatch = 0]
+  xf <- x[tas < 10 | i.tas < 10]
+  if(nrow(xf) < 6)
     return(NULL)
-  xf <- x %>%
-    filter(tas.x < 10 | tas.y < 10)
-  sum_min <- sum(pmin(xf$tas.x, xf$tas.y))
-  sum_max <- sum(pmax(xf$tas.x, xf$tas.y))
+  sum_min <- sum(pmin(xf$tas, xf$i.tas))
+  sum_max <- sum(pmax(xf$tas, xf$i.tas))
   list(
     n_pairs = nrow(xf),
     n_pairs_prior = nrow(x),
@@ -28,7 +27,7 @@ calculate_weighted_jaccard <- function(x1, x2) {
   )
 }
 
-process_tas_sim <- function(df1, df2, symmetrical = FALSE) {
+process_tas_sim <- function(df1, df2, symmetrical = TRUE) {
   n1 <- nrow(df1)
   n2 <- nrow(df2)
   idx <- 1
@@ -55,8 +54,8 @@ process_tas_sim <- function(df1, df2, symmetrical = FALSE) {
     rbindlist()
 }
 
-
-
+# For cases where we check self-similarity we only have to calculate half of
+# the matrix
 if(argv$tas1 ==  argv$tas2) {
   tas_df <- read_rds(argv$tas1)
   res <- process_tas_sim(tas_df, tas_df, symmetrical = TRUE)

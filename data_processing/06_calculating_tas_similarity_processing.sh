@@ -1,9 +1,7 @@
 #!/bin/bash
-#SBATCH -t 0-4:00                         # Runtime in D-HH:MM format
+#SBATCH -t 0-2:00                        # Runtime in D-HH:MM format
 #SBATCH -p short                           # Partition to run in
-#SBATCH --mem=8G                          # Memory total in MB (for all cores)
-
-source activate chemfp
+#SBATCH --mem=2G                          # Memory total in MB (for all cores)
 
 set -eux
 
