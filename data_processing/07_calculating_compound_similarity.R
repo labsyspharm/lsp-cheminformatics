@@ -86,7 +86,7 @@ pwalk(
 
 session <- ssh_connect("ch305@o2.hms.harvard.edu", keyfile = "~/.ssh/id_ecdsa")
 remote_wd <- file.path("/n", "scratch2", "ch305", paste0("simsearch_", lubridate::now() %>% str_replace(" ", "_")))
-# remote_wd <- "/n/scratch2/ch305/simsearch_2019-10-14_23:05:50"
+# remote_wd <- "/n/scratch2/ch305/simsearch_2019-10-22_17:52:44"
 
 ssh_exec_wait(session, paste0("mkdir -p ", remote_wd))
 
@@ -207,16 +207,23 @@ job_parse_ls <- ssh_exec_internal(
   rawToChar() %>%
   read_delim("|", col_names = c("path", "size"))
 
+# uniq_jobs <- job_parse_ls %>%
+#   filter(str_detect(path, fixed(".tsv.gz")), size < 3009360191) %>%
+#   mutate(
+#     cmd = paste0("sbatch -c 8 -t 0-0:20 -p short --wrap 'gunzip -cd ", basename(path), " | uniq | pigz -p 7 > ", basename(path), "_uniq'")
+#   )
+# uniq_jobs$cmd %>% clipr::write_clip()
+
 jobs_parse_success <- job_parse_ls %>%
   mutate(fn = basename(path)) %>%
-  filter(str_detect(fn, fixed("simsearch_res")), size > 23000000000)
+  filter(str_detect(fn, fixed("simsearch_res")), size > 12000000000)
 
 jobs_parse_failed <- parse_cmds %>%
   filter(!(V4 %in% jobs_parse_success$fn))
 
 # Copy submission commands for execution on cluster
-jobs_parse_failed %>% filter(fp_name == "morgan_normal") %>% pull("cmd") %>% clipr::write_clip()
+jobs_parse_failed %>% filter(fp_name == "morgan_chiral") %>% pull("cmd") %>% clipr::write_clip()
 
 # Merge all similarity searches into a single file
-#
-
+# sbatch -t 0-18:00 -c 4 -p medium --mem=20G --wrap 'sort --parallel=4 -k1,1 -k2,2 -S 18G -m --batch-size=1000 -u simsearch_res_morgan_normal_*.tsv > simsearch_res_morgan_normal_all2.tsv'
+# sbatch -t 0-18:00 -p medium --mem=20G --wrap 'sort -k1,1 -k2,2 -S 18G -m --batch-size=1000 -u simsearch_res_morgan_chiral_*.tsv > simsearch_res_morgan_chiral_all.tsv'
