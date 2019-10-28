@@ -20,21 +20,11 @@ file_list <- Sys.glob("simsearch_res_*.tsv.gz")
 
 message("Files: ", file_list)
 
-cmpd_similarity_activity <- Activity(
-  name = "Calculate compound similarity",
-  used = c(
-    "syn21042105",
-    "syn20692501"
-  ),
+upload_manifest <- tibble(
+  path = normalizePath(file_list),
+  parent = cmpd_sim_folder,
+  used = "syn21042105;syn20692501",
   executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/data_processing/07_calculating_compound_similarity.R"
 )
 
-# plan(multisession(workers = 4))
-walk(
-  file_list,
-  function(f) {
-    message(f)
-    File(f, parent = cmpd_sim_folder) %>%
-      synStore(activity = cmpd_similarity_activity)
-  }
-)
+write_tsv(upload_manifest, "compound_similarity_upload_manifest.tsv")
