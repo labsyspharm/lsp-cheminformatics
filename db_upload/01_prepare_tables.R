@@ -21,12 +21,15 @@ syn_release <- synFindEntityId(release, "syn18457321")
 tables <- tribble(
   ~name, ~synapse_id,
   "lsp_compound_dictionary", "syn20835543",
-  # "lsp_target_dictionary", "syn20693721",
+  "lsp_target_dictionary", "syn20693721",
   "lsp_biochem", "syn20830825",
   "lsp_phenotypic_chembl", "syn20976900",
   "lsp_tas", "syn20830939",
   "lsp_specificity", "syn20836653",
-  "lsp_one_dose_scans", "syn20830835"
+  "lsp_one_dose_scans", "syn20830835",
+  "lsp_tas_similarity", "syn21052803",
+  "lsp_clinical_info", "syn21064122",
+  "lsp_commercial_availability", "syn21049601"
 ) %>%
   mutate(
     data = map(
@@ -46,46 +49,56 @@ dirs_tables <- tables$data[[1]]$fp_name %>%
 dirs_tables %>%
   walk(dir.create, showWarnings = FALSE)
 
-tables_long <- tables %>%
+# Add commercial availability to compound dictionary
+compound_dict <- tables %>%
+  filter(name %in% c("lsp_compound_dictionary", "lsp_commercial_availability")) %>%
+  unnest(data) %>%
+  select(fp_type, fp_name, name, data) %>%
+  spread(name, data) %>%
+  mutate(
+    lsp_compound_dictionary = map2(
+      lsp_compound_dictionary, lsp_commercial_availability,
+      ~mutate(
+          .x,
+          commercially_available = .x$lspci_id %in% .y$lspci_id
+        )
+    )
+  ) %>%
+  select(fp_type, fp_name, lsp_compound_dictionary) %>%
+  gather("name", "data", lsp_compound_dictionary) %>%
+  group_nest(name)
+
+# Add modified compound dict back to list of tables
+tables_mod <- bind_rows(
+  tables %>%
+    filter(name %in% compound_dict$name) %>%
+    select(-data) %>%
+    left_join(compound_dict),
+  tables %>%
+    filter(!(name %in% compound_dict$name))
+)
+
+tables_long <- tables_mod %>%
   unnest(data) %>%
   mutate(
     fn = file.path(
-      dir_release,  fp_name,
-      paste0(
-        name,
-        if_else(
-          map(
-            data, map_lgl, is_list
-          ) %>%
-            map_lgl(any),
-          ".rds",
-          ".csv.gz"
-        )
-      )
+      dir_release, fp_name, paste0(name, ".csv.gz")
+    ),
+    # Concatenate list columns for csv export
+    data = map(
+      data,
+      mutate_if, is.list,
+      ~if_else(map_lgl(.x, is.null), NA_character_, map_chr(.x, paste, collapse = "|"))
     )
   )
 
 walk2(
   tables_long$data, tables_long$fn,
-  ~if (any(map_lgl(.x, is.list))) write_rds(.x, .y, compress = "gz") else write_csv(.x, .y)
+  write_csv
 )
 
 # Store to synapse -------------------------------------------------------------
 ###############################################################################T
-
-table_wrangling <- Activity(
-  name = "Wrangle tables for postgresql import",
-  used = c(
-    "syn20693721",
-    "syn20830825",
-    "syn20830835",
-    "syn20830939",
-    "syn20835543",
-    "syn20836653",
-    "syn20976900"
-  ),
-  executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/db_upload/01_prepare_tables.R"
-)
 
 syn_db_tables_parent <- Folder("db_tables", parent = syn_release) %>%
   synStore() %>%
@@ -94,7 +107,7 @@ syn_db_tables_parent <- Folder("db_tables", parent = syn_release) %>%
 syn_db_table_map <- tables_long %>%
   distinct(fp_name) %>%
   mutate(
-    syn_dir = map_chr(
+    parent_dir = map_chr(
       fp_name,
       ~Folder(.x, parent = syn_db_tables_parent) %>%
         synStore() %>%
@@ -102,15 +115,38 @@ syn_db_table_map <- tables_long %>%
     )
   )
 
-tables_long %>%
-  left_join(syn_db_table_map) %>%
-  pwalk(
-    function(fn, syn_dir, ...) {
-      synStoreMany(fn, parent = syn_dir, activity = table_wrangling)
+syn_tables <- tables_long %>%
+  rename(source_syn = synapse_id) %>%
+  mutate(
+    activity = map(
+      source_syn,
+      ~Activity(
+        name = "Wrangle tables for postgresql import",
+        used = .x,
+        executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/db_upload/01_prepare_tables.R"
+      )
+    )
+  ) %>%
+  left_join(syn_db_table_map, by = "fp_name")
+
+
+pwalk(
+  syn_tables,
+  function(fn, parent_dir, activity, ...) {
+    synStoreMany(fn, parent = parent_dir, activity = activity)
+  }
+)
+
+# Link target mapping for each fp_type
+syn_db_table_map %>%
+  pull(parent_dir) %>%
+  walk(
+    function(x) {
+      link <- Link("syn20693721", parent = x) %>%
+        synStore()
+      link$properties$name = "lsp_target_dictionary.csv.gz"
+      synStore(link)
     }
   )
 
-# Link target mapping
-Link("syn20693721", parent = syn_db_tables_parent, properties = list(name = "lsp_target_dictionary.csv.gz")) %>%
-  synStore()
 

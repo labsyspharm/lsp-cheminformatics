@@ -83,7 +83,9 @@ write_rds(
 wrangle_activity <- Activity(
   name = "Wrangle commercial availability of compounds from ZINC",
   used = c(
-    "syn20934414"
+    "syn20934414",
+    "http://files.docking.org/catalogs/1/chembl23/chembl23.codemap.txt.gz",
+    vendor_libraries$info_url
   ),
   executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/data_processing/08_commercial_availability.R"
 )
@@ -96,4 +98,3 @@ c(
   file.path(dir_release, "compound_commercial_info_zinc.rds")
 ) %>%
   synStoreMany(parentId = syn_vendors, activity = wrangle_activity)
-
