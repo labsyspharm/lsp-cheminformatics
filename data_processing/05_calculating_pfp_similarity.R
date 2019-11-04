@@ -86,59 +86,8 @@ write_rds(
 
 # rscores <- read_rds(file.path(dir_release, "pheno_data_rscores.rds"))
 
-
-# calculate pearson correlation ------------------------------------------------
-###############################################################################T
-
-# calculate_pheno_cor_inner <- function(df1, df2) {
-#   c.vector <- inner_join(
-#     df1,
-#     df2,
-#     by = "assay_id"
-#   )
-#   if(nrow(c.vector) <= 5)
-#     return(NULL)
-#   c.result <- list()
-#   c.result$pearson_corr <- cor(
-#     c.vector$rscore_tr.x, c.vector$rscore_tr.y,
-#     use = "pairwise.complete.obs"
-#   )
-#   c.result$n_common_active <- nrow(c.vector)
-#   c.result
-# }
-#
-# calculate_pheno_cor <- function(df) {
-#   df_split <- df %>%
-#     split(.$lspci_id)
-#   res_list <- list()
-#   idx <- 1
-#   for (i in seq(1, length(df_split) - 1)) {
-#     for (j in seq(i + 1, length(df_split))) {
-#       res <- calculate_pheno_cor_inner(df_split[[i]], df_split[[j]])
-#       if (!is.null(res)) {
-#         res$lspci_id_1 <- names(df_split)[i]
-#         res$lspci_id_2 <- names(df_split)[j]
-#         res_list[[idx]] <- res
-#         idx <- idx + 1
-#       }
-#     }
-#   }
-#   rbindlist(res_list) %>%
-#     as_tibble()
-# }
-
-
-
-# Using a simple implementation of calculating pairwise correlation between
-# all compounds failes because we have too many compounds. Trying
-# to implement using sparse matrices and cosine distance instead of correlation
-# instead
-
-
-
 # Calculate cosine distance ----------------------------------------------------
 ###############################################################################T
-
 
 create_sparse_mat <- function(df) {
   coords <- df %>%
@@ -242,71 +191,8 @@ pwalk(
   }
 )
 
-ncor_per_cmpd <- pfp_table_raw %>%
-  mutate(
-    data = map(
-      data,
-      ~diff(.x@p)
-    )
-  )
 
 # Have to go through the pfp data for each fingerprint dataset separately
 # due to memory constraints
-
-rm(list = c("pfp_table_raw", "pfp_adjacency_mat"))
-gc()
-
-filter_by_shared_assays <- function(cosine_sim, adjacency, threshold = 5, ...) {
-  gc()
-  adjacency <- read_rds(adjacency)
-  message("Loaded adjacency")
-  browser()
-  adj_fail <- which(adjacency < threshold)
-  message("Found failing")
-  rm(list = c("adjacency"))
-  gc()
-  cosine_sim <- read_rds(cosine_sim)
-  message("Read cosine")
-  cosine_sim[adj_fail] <- 0
-  message("Removed failing")
-  rm(list = c("adj_fail"))
-  cosine_sim
-}
-
-pfp_data <- pheno_data %>%
-  select(-data) %>%
-  mutate(
-    cosine_sim = file.path(dir_release, paste0("pfp_sim_cosine_raw_", fp_name, ".rds")),
-    adjacency = file.path(dir_release, paste0("pfp_sim_adjacency_raw_", fp_name, ".rds"))
-  ) %>%
-  mutate(
-    data = pmap(., filter_by_shared_assays)
-  )
-
-# paste -d , pfp_sim_adjacency_raw_morgan_normal.rds.csv pfp_sim_cosine_raw_morgan_normal.rds.csv | awk -v FS=, 'BEGIN{OFS=","}$1 != $4 || $2 != $5{exit("error")} $3 >= 5{print $1, $2, $3, $6}'
-# echo 'lspci_1_id,lspci_2_id,n_common,correlation' > header
-# gunzip -cd pfp_sim_cosine_filtered_morgan_normal.csv.gz | gtail -n +2 | gcat header - | pigz
-
-# Store to synapse -------------------------------------------------------------
-###############################################################################T
-
-pfp_activity <- Activity(
-  name = "Calculate phenotypic correlation",
-  used = c(
-    "syn20841032"
-  ),
-  executed = "https://github.com/clemenshug/small-molecule-suite-maintenance/blob/master/data_processing/05_calculating_pfp_similarity.R"
-)
-
-syn_pfp_sim <- Folder("pfp_similarity", parent = syn_release) %>%
-  synStore() %>%
-  chuck("properties", "id")
-
-c(
-  file.path(dir_release, "pfp_sim_cosine_filtered_morgan_normal.csv.gz"),
-  file.path(dir_release, "pfp_sim_adjacency_raw.rds"),
-  file.path(dir_release, "pfp_sim_cosine_raw.rds"),
-  file.path(dir_release, "pfp_sim_cosine_formatted_morgan_normal.csv.gz")
-) %>%
-  synStoreMany(parent = syn_pfp_sim, activity = pfp_activity)
+# In file 05_calculating_pfp_similarity_processing.R
 

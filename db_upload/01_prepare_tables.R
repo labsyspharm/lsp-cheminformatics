@@ -21,7 +21,7 @@ syn_release <- synFindEntityId(release, "syn18457321")
 tables <- tribble(
   ~name, ~synapse_id,
   "lsp_compound_dictionary", "syn20835543",
-  "lsp_target_dictionary", "syn20693721",
+  # "lsp_target_dictionary", "syn20693721",
   "lsp_biochem", "syn20830825",
   "lsp_phenotypic_chembl", "syn20976900",
   "lsp_tas", "syn20830939",
@@ -149,4 +149,21 @@ syn_db_table_map %>%
     }
   )
 
-
+# Link PFP correlation for each fp_type
+x <- tribble(
+  ~fp_name, ~syn_source,
+  "morgan_normal", "syn21116196",
+  "morgan_chiral", "syn21116195",
+  "topological_normal", "syn21116206"
+) %>%
+  left_join(syn_db_table_map, by = "fp_name") %>%
+  pwalk(
+    .,
+    function(fp_name, syn_source, parent_dir, ...) {
+      fn <- syn(syn_source)
+      link <- Link(syn_source, parent = parent_dir) %>%
+        synStore()
+      link$properties$name = "lsp_pfp_correlation.csv.gz"
+      synStore(link)
+    }
+  )
