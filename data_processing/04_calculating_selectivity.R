@@ -117,7 +117,7 @@ iterate_targets <- function(c.data) {
 
 activities_lspci_id_geneid <- activities %>%
   unnest(data) %>%
-  rename(lspci_id = eq_class, gene_id = entrez_gene_id, standard_value = value)
+  rename(lspci_id, gene_id = entrez_gene_id, standard_value = value)
 
 # lspci_id_list<-dlply(activities_lspci_id_geneid,.(lspci_id),c)
 
@@ -167,89 +167,68 @@ write_rds(
 # Calculating selectivity classes ----------------------------------------------
 ###############################################################################T
 
-calculate_most_selective <- function(df) {
-  df %>%
-    filter(
-      tool_score >= 5,
-      IC50_diff >= 2,
-      wilcox_pval <= 0.1,
-      strength == 8,
-      investigation_bias <= 0.2
-    )
-}
-
-calculate_semi_selective <- function(df, most_selective) {
-  df %>%
-    filter(
-      IC50_diff >= 1,
-      wilcox_pval <= 0.1,
-      strength >= 5,
-      investigation_bias <= 0.2
-    ) %>%
-    anti_join(
-      most_selective,
-      by = c("lspci_id", "gene_id")
-    )
-}
-
-calculate_poly_selective <- function(df, most_selective, semi_selective) {
-  genes_already_covered <- union(
-    most_selective$gene_id,
-    semi_selective$gene_id
+is_most_selective <- function(df) {
+  with(
+    df,
+    tool_score >= 5,
+    IC50_diff >= 2,
+    wilcox_pval <= 0.1,
+    strength == 8,
+    investigation_bias <= 0.2
   )
-  df %>%
-    filter(
-      ontarget_IC50_N > 1,
-      investigation_bias <= 0.2,
-      IC50_diff >= 0,
-      ontarget_IC50_Q1 < 9000,
-      gene_id %nin% genes_already_covered
-    ) %>%
-    anti_join(
-      bind_rows(most_selective, semi_selective),
-      by = c("lspci_id", "gene_id")
-    ) %>%
-    arrange(desc(tool_score)) %>%
-    group_by(gene_id) %>%
-    slice(1) %>%
-    ungroup()
 }
 
-calculate_unknown_selective <- function(df, most_selective, semi_selective, poly_selective) {
-  df %>%
-    filter(
-      IC50_diff >= 0,
-      ontarget_IC50_Q1 < 9000
-    ) %>%
-    anti_join(
-      bind_rows(most_selective, semi_selective, poly_selective),
-      by = c("lspci_id", "gene_id")
-    )
+is_semi_selective <- function(df) {
+  with(
+    df,
+    IC50_diff >= 1,
+    wilcox_pval <= 0.1,
+    strength >= 5,
+    investigation_bias <= 0.2
+  )
 }
+
+is_poly_selective <- function(df) {
+  with(
+    df,
+    ontarget_IC50_N > 1,
+    investigation_bias <= 0.2,
+    IC50_diff >= 0,
+    ontarget_IC50_Q1 < 9000
+  )
+}
+
+is_unknown_selective <- function(df) {
+  with(
+    df,
+    IC50_diff >= 0,
+    ontarget_IC50_Q1 < 9000
+  )
+}
+
+calculate_selectivity_class <- function(df) {
+   case_when(
+     is_most_selective(df) ~ "most_selective",
+     is_semi_selective(df) ~ "semi_selective",
+     is_poly_selective(df) ~ "poly_selective",
+     is_unknown_selective(df) ~ "unknown_selective",
+     TRUE ~ "other_selective"
+   )
+}
+
+selectivity_class_order <- c(
+  "most_selective",
+  "semi_selective",
+  "poly_selective",
+  "unknown_selective",
+  "other_selective"
+)
 
 selectivity_classes <- toolscore_all %>%
   mutate(
-    most_selective = map(
+    data = map(
       result,
-      calculate_most_selective
-    )
-  ) %>%
-  mutate(
-    semi_selective = map2(
-      result, most_selective,
-      calculate_semi_selective
-    )
-  ) %>%
-  mutate(
-    poly_selective = pmap(
-      list(result, most_selective, semi_selective),
-      calculate_poly_selective
-    )
-  ) %>%
-  mutate(
-    unknown_selective = pmap(
-      list(result, most_selective, semi_selective, poly_selective),
-      calculate_unknown_selective
+      ~mutate(.x, selectivity_class = factor(calculate_selectivity_class(.x), levels = selectivity_class_order))
     )
   )
 
@@ -262,15 +241,7 @@ canonical_table <- syn("syn20835543") %>%
 target_table <- syn("syn20693721") %>%
   read_csv(col_types = "ciciccciccccc")
 
-selectivity_classes_long <- selectivity_classes %>%
-  gather("selectivity_class", "selectivity", ends_with("_selective")) %>%
-  group_by(fp_name, fp_type) %>%
-  summarize(
-    selectivity = selectivity %>%
-      set_names(selectivity_class) %>%
-      bind_rows(.id = "selectivity_class") %>%
-      list()
-  ) %>%
+selectivity_classes_annotated <- selectivity_classes %>%
   left_join(
     canonical_table %>%
       rename(canonical_table = data) %>%
@@ -280,7 +251,7 @@ selectivity_classes_long <- selectivity_classes %>%
   ) %>%
   mutate(
     selectivity = map2(
-      selectivity, canonical_table,
+      data, canonical_table,
       left_join
     ) %>%
       map(
@@ -298,7 +269,7 @@ selectivity_classes_long <- selectivity_classes %>%
   )
 
 write_rds(
-  selectivity_classes_long %>%
+  selectivity_classes_annotated %>%
     select(fp_name, fp_type, data = selectivity),
   file.path(dir_release, "selectivity_classes.rds"),
   compress = "gz"
