@@ -19,17 +19,17 @@ syn_release <- synFindEntityId(release, "syn18457321")
 # on the fingerprinting algo
 
 tables <- tribble(
-  ~name, ~synapse_id,
-  "lsp_compound_dictionary", "syn20835543",
-  # "lsp_target_dictionary", "syn20693721",
-  "lsp_biochem", "syn20830825",
-  "lsp_phenotypic_chembl", "syn20976900",
-  "lsp_tas", "syn20830939",
-  "lsp_specificity", "syn20836653",
-  "lsp_one_dose_scans", "syn20830835",
-  "lsp_tas_similarity", "syn21052803",
-  "lsp_clinical_info", "syn21064122",
-  "lsp_commercial_availability", "syn21049601"
+  ~name, ~synapse_id, ~used,
+  "lsp_compound_dictionary", "syn20835543", "syn21049601",
+  # # "lsp_target_dictionary", "syn20693721", NULL,
+  # "lsp_biochem", "syn20830825", NULL,
+  # "lsp_phenotypic_chembl", "syn20976900", NULL,
+  # "lsp_tas", "syn20830939", NULL,
+  # "lsp_specificity", "syn20836653", NULL,
+  # "lsp_one_dose_scans", "syn20830835", NULL,
+  # "lsp_tas_similarity", "syn21052803", NULL,
+  # "lsp_clinical_info", "syn21064122", NULL,
+  "lsp_commercial_availability", "syn21049601", NULL
 ) %>%
   mutate(
     data = map(
@@ -118,8 +118,9 @@ syn_db_table_map <- tables_long %>%
 syn_tables <- tables_long %>%
   rename(source_syn = synapse_id) %>%
   mutate(
+    used = map2(used, source_syn, c),
     activity = map(
-      source_syn,
+      used,
       ~Activity(
         name = "Wrangle tables for postgresql import",
         used = .x,

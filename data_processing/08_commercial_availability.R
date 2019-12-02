@@ -48,26 +48,43 @@ vendor_tables <- vendor_libraries %>%
     info = map(id, ~read_tsv(file.path(tempdir(), paste0("info_", .x, ".txt.gz")), col_names = c("vendor_id", "zinc_id", "inchi_key", "tranche", "notes"), col_types = "ccccc")),
   )
 
+# Mapping from Zinc IDs to Chembl provided by Zinc directly
 download.file("http://files.docking.org/catalogs/1/chembl23/chembl23.codemap.txt.gz", file.path(tempdir(), "codemap_chembl23.txt.gz"))
 chembl_codemap <- read_delim(file.path(tempdir(), "codemap_chembl23.txt.gz"), delim = " ", col_names = c("zinc_id", "chembl_id"), col_types = "cc")
+
+# Mapping from Zinc IDs to Chembl provided by Unichem
+unichem_mapping <- syn("syn20693559") %>%
+  read_csv()
+
+# Combining the two Zinc ID mappings
+zinc_mapping <- unichem_mapping %>%
+  filter(src_name == "zinc") %>%
+  select(zinc_id = Xref_id_compound, chembl_id = chembl_id_compound) %>%
+  bind_rows(chembl_codemap) %>%
+  distinct()
 
 vendor_tables_chembl <- vendor_tables %>%
   select(vendor = id, info) %>%
   unnest(info) %>%
   select(-tranche) %>%
-  left_join(chembl_codemap, by = "zinc_id")
+  left_join(
+    zinc_mapping, by = "zinc_id"
+  )
 
 vendor_tables_lscpi <- compound_mapping %>%
   mutate(
     data = map(
       data,
-      ~ left_join(vendor_tables_chembl, select(.x, id, lspci_id), by = c("chembl_id" = "id")) %>%
+      ~left_join(vendor_tables_chembl, select(.x, id, lspci_id), by = c("chembl_id" = "id")) %>%
         select(-inchi_key, -chembl_id, -zinc_id, -notes) %>%
-        distinct() %>%
         left_join(select(vendor_libraries, id, vendor_url), by = c("vendor" = "id")) %>%
         mutate(
           vendor_url = paste0(vendor_url, vendor_id)
-        )
+        ) %>%
+        # Some Chembl IDs can't be mapped because they are no longer used
+        # in the current version, removing those
+        drop_na(lspci_id) %>%
+        distinct()
     )
   )
 
@@ -84,6 +101,7 @@ wrangle_activity <- Activity(
   name = "Wrangle commercial availability of compounds from ZINC",
   used = c(
     "syn20934414",
+    "syn20693559",
     "http://files.docking.org/catalogs/1/chembl23/chembl23.codemap.txt.gz",
     vendor_libraries$info_url
   ),
