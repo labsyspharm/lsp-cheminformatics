@@ -170,10 +170,10 @@ write_rds(
 is_most_selective <- function(df) {
   with(
     df,
-    tool_score >= 5,
-    IC50_diff >= 2,
-    wilcox_pval <= 0.1,
-    strength == 8,
+    tool_score >= 5 &
+    IC50_diff >= 2 &
+    wilcox_pval <= 0.1 &
+    strength == 8 &
     investigation_bias <= 0.2
   )
 }
@@ -181,9 +181,9 @@ is_most_selective <- function(df) {
 is_semi_selective <- function(df) {
   with(
     df,
-    IC50_diff >= 1,
-    wilcox_pval <= 0.1,
-    strength >= 5,
+    IC50_diff >= 1 &
+    wilcox_pval <= 0.1 &
+    strength >= 5 &
     investigation_bias <= 0.2
   )
 }
@@ -191,9 +191,9 @@ is_semi_selective <- function(df) {
 is_poly_selective <- function(df) {
   with(
     df,
-    ontarget_IC50_N > 1,
-    investigation_bias <= 0.2,
-    IC50_diff >= 0,
+    ontarget_IC50_N > 1 &
+    investigation_bias <= 0.2 &
+    IC50_diff >= 0 &
     ontarget_IC50_Q1 < 9000
   )
 }
@@ -201,7 +201,7 @@ is_poly_selective <- function(df) {
 is_unknown_selective <- function(df) {
   with(
     df,
-    IC50_diff >= 0,
+    IC50_diff >= 0 &
     ontarget_IC50_Q1 < 9000
   )
 }
