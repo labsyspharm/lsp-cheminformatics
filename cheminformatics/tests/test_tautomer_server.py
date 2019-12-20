@@ -4,12 +4,12 @@ import tempfile
 
 import pytest
 
-import tas_chemoinformatics
+import tas_cheminformatics
 
 @pytest.fixture
 def client():
-    tas_chemoinformatics.app.testing = True
-    with tas_chemoinformatics.app.test_client() as client:
+    tas_cheminformatics.app.testing = True
+    with tas_cheminformatics.app.test_client() as client:
         yield client
 
 def test_tautomerize(client):

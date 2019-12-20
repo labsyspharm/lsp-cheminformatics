@@ -2,7 +2,7 @@ from flask import request
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Draw, inchi
 
-from tas_chemoinformatics import app
+from tas_cheminformatics import app
 from .schemas import DrawGridSchema, DrawGridResultSchema
 from .draw import draw_molecule_grid
 from .util import identifier_mol_mapping, mol_identifier_mapping
@@ -10,7 +10,7 @@ from .util import identifier_mol_mapping, mol_identifier_mapping
 # Run using:
 # FLASK_APP=__init__.py flask run -p 5000
 # OR to support multiple parallel requests to speed things up:
-# gunicorn --workers=4 -b 127.0.0.1:5000 -t 600 tas_chemoinformatics
+# gunicorn --workers=4 -b 127.0.0.1:5000 -t 600 tas_cheminformatics
 
 
 @app.route("/draw/grid", methods=["POST"])

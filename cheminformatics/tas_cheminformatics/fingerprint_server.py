@@ -19,10 +19,10 @@ from flask import Flask, request, send_file
 from rdkit import Chem
 from rdkit.Chem import inchi
 
-from tas_chemoinformatics import app
-from tas_chemoinformatics.util import identifier_mol_mapping
+from tas_cheminformatics import app
+from tas_cheminformatics.util import identifier_mol_mapping
 
-# from tas_chemoinformatics.schemas import FingerprintDBSchema, FingerprintDBResultSchema
+# from tas_cheminformatics.schemas import FingerprintDBSchema, FingerprintDBResultSchema
 
 try:
     from chemfp.commandline import rdkit2fps
