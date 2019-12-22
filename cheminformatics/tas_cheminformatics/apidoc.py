@@ -11,7 +11,7 @@ spec = APISpec(
     title="TAS Chemoinformatics tools",
     version="0.2",
     openapi_version="3.0.2",
-    plugins=[FlaskPlugin(), MarshmallowPlugin()]
+    plugins=[FlaskPlugin(), MarshmallowPlugin()],
 )
 
 for i in dir(schemas):

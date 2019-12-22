@@ -4,6 +4,7 @@ from rdkit.Chem import AllChem, Draw, inchi
 from molvs import standardize as mol_standardize
 from molvs import tautomer
 
+
 def draw_molecule_grid(compounds, names=None):
     for m in compounds:
         AllChem.Compute2DCoords(m)

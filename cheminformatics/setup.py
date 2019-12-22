@@ -7,7 +7,16 @@ setup(
     version="0.2",
     packages=["tas_cheminformatics"],
     include_package_data=True,
-    install_requires=["click", "flask", "molvs", "rdkit", "pandas", "gunicorn", "marshmallow", "apispec"],
+    install_requires=[
+        "click",
+        "flask",
+        "molvs",
+        "rdkit",
+        "pandas",
+        "gunicorn",
+        "marshmallow",
+        "apispec",
+    ],
     classifiers=[
         "Programming Language :: Python",
         "License :: OSI Approved :: MIT License",

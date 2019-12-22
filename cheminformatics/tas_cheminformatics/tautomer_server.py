@@ -3,14 +3,14 @@ from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Draw, inchi
 
 from tas_cheminformatics import app
-from .schemas import TautomerizeSchema, CanonicalizeSchema, TautomerizeResultSchema, CanonicalizeResultSchema
+from .schemas import (
+    TautomerizeSchema,
+    CanonicalizeSchema,
+    TautomerizeResultSchema,
+    CanonicalizeResultSchema,
+)
 from .tautomers import canonicalize, tautomerize
 from .util import identifier_mol_mapping, mol_identifier_mapping
-
-# Run using:
-# FLASK_APP=__init__.py flask run -p 5000
-# OR to support multiple parallel requests to speed things up:
-# gunicorn --workers=4 -b 127.0.0.1:5000 -t 600 tas_cheminformatics
 
 
 @app.route("/tautomers/enumerate", methods=["POST"])
@@ -37,8 +37,7 @@ def tautomerize_route():
     for in_id in data["compounds"]["compounds"]:
         try:
             tauts = tautomerize(
-                identifier_mol_mapping[id_used](in_id),
-                data.get("max_tautomers", 10)
+                identifier_mol_mapping[id_used](in_id), data.get("max_tautomers", 10)
             )
         except Exception as e:
             print(e)
@@ -80,7 +79,8 @@ def canonicalize_route():
     res, skipped = canonicalize(mol_input, id_used, standardize=data["standardize"])
     out = {
         "canonical": {
-            k: {"identifier": id_used, "compounds": mol_identifier_mapping[id_used](v)} for k, v in res.items()
+            k: {"identifier": id_used, "compounds": mol_identifier_mapping[id_used](v)}
+            for k, v in res.items()
         },
         "skipped": skipped,
     }

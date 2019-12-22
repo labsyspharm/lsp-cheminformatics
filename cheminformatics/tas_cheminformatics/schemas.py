@@ -1,7 +1,7 @@
 from marshmallow import Schema, fields, validate
 
 from .util import identifier_mol_mapping
-from .fingerprint_server import fp_types
+from .fingerprint import fingerprint_functions
 
 identifier_field = fields.String(
     validate=validate.OneOf(identifier_mol_mapping.keys()),
@@ -10,7 +10,11 @@ identifier_field = fields.String(
     example="inchi",
 )
 
-skipped_field = fields.List(fields.String, description="A list of compound identifiers that couldn't be processed")
+skipped_field = fields.List(
+    fields.String,
+    description="A list of compound identifiers that couldn't be processed",
+)
+
 
 class CompoundsSchema(Schema):
     compounds = fields.List(
@@ -35,7 +39,6 @@ class TautomerizeSchema(Schema):
 
 
 class TautomerizeResultSchema(Schema):
-    request = fields.Nested(TautomerizeSchema)
     tautomers = fields.Mapping(
         keys=fields.String, values=fields.Nested(CompoundsSchema), required=True
     )
@@ -51,59 +54,42 @@ class CanonicalizeSchema(Schema):
 
 
 class CanonicalizeResultSchema(Schema):
-    request = fields.Nested(CanonicalizeSchema)
     canonical = fields.Mapping(
         keys=fields.String, values=fields.Nested(CompoundsSchema), required=True
     )
     skipped = skipped_field
 
 
-class FingerprintDBSchema(Schema):
-    compounds = fields.Nested(CompoundsSchema, required=True)
+class SimilaritySchema(Schema):
+    query = fields.Nested(
+        CompoundsSchema,
+        description="Query compounds to be compared with the target compounds",
+        required=True,
+    )
+    target = fields.Nested(
+        CompoundsSchema,
+        description="Target compounds to be compared with the query compounds",
+        required=True,
+    )
     fingerprint_type = fields.String(
-        validate=validate.OneOf(fp_types.keys()),
+        validate=validate.OneOf(fingerprint_functions.keys()),
         missing="topological",
         description="The type of fingerprinting algorithm to be used",
     )
-    fingerprint_args = fields.List(
-        fields.String,
-        missing=[],
-        description="Optional additional arguments passed to chemfp. "
-        "See https://chemfp.readthedocs.io/en/chemfp-1.5/tool-help.html#rdkit2fps-command-line-options",
-        example="['--useChirality', '0']",
+    fingerprint_args = fields.Mapping(
+        keys=fields.String,
+        values=fields.Field,
+        missing={},
+        description="Optional additional arguments passed to RDKit fingerprinting functions. "
+        "See https://www.rdkit.org/docs/source/rdkit.Chem.rdmolops.html#rdkit.Chem.rdmolops.RDKFingerprint "
+        "and https://www.rdkit.org/docs/source/rdkit.Chem.rdMolDescriptors.html#rdkit.Chem.rdMolDescriptors.GetMorganFingerprint",
+        example='{"minPath": 2, "useHs": false}',
     )
 
 
-class FingerprintDBResultSchema(Schema):
-    request = fields.Nested(FingerprintDBSchema)
-    fingerprint_db = fields.String(
-        required=True,
-        description="Fingerprint database file in .fps format as base64 encoded string",
-    )
-    skipped = skipped_field
-
-
-class FingerprintScanSchema(Schema):
-    fingerprint_db = fields.String(
-        required=True,
-        description="Reference database that is searched for fingerprints matching the query database. "
-        "Fingerprint database file in .fps format as base64 encoded string.",
-    )
-    threshold = fields.Float(
-        missing=0.95,
-        description="Threshold for reporting matches calculated by Tanimoto similarity",
-    )
-    query = fields.String(
-        description="Query database with fingerprints to be matched to the reference database. "
-        "If ommitted, an  all-by-all search using  all  reference fingerprints is performed. "
-        "Fingerprint database file in .fps format as base64 encoded string."
-    )
-
-
-class FingerprintScanResultSchema(Schema):
-    request = fields.Nested(FingerprintScanSchema)
+class SimilarityResultSchema(Schema):
     query = fields.List(fields.String, required=True)
-    match = fields.List(fields.String, required=True)
+    target = fields.List(fields.String, required=True)
     score = fields.List(fields.Float, required=True)
 
 
@@ -131,7 +117,5 @@ class CalculateMassSchema(Schema):
 
 
 class CalculateMassResultSchema(Schema):
-    mass = fields.Mapping(
-        keys=fields.String, values=fields.Float, required=True
-    )
+    mass = fields.Mapping(keys=fields.String, values=fields.Float, required=True)
     skipped = skipped_field
