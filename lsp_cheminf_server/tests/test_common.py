@@ -1,6 +1,6 @@
 import pytest
 
-import tas_cheminformatics
+import lspcheminf
 
 test_compounds = {
     "inchi": [
@@ -10,16 +10,16 @@ test_compounds = {
         "InChI=1S/C14H12O3/c15-12-5-3-10(4-6-12)1-2-11-7-13(16)9-14(17)8-11/h1-9,15-17H/b2-1+",
     ],
     "smiles": [
-        "COc1ccc(CCN2CCCn3c2nc4N(C)C(=O)N(CC(C)C)C(=O)c34)cc1OC",
-        "CC(C)c1ccc(cc1C)N(Cc2ccc(cc2)C(=O)NCCC(=O)O)c3nc(cs3)c4ccc(cc4)C(F)(F)F",
-        "C[C@@H]1CCN(C[C@@H]1N(C)c2ncnc3[nH]ccc23)C(=O)CC#N",
-        "Oc1ccc(\C=C\c2cc(O)cc(O)c2)cc1",
+        r"COc1ccc(CCN2CCCn3c2nc4N(C)C(=O)N(CC(C)C)C(=O)c34)cc1OC",
+        r"CC(C)c1ccc(cc1C)N(Cc2ccc(cc2)C(=O)NCCC(=O)O)c3nc(cs3)c4ccc(cc4)C(F)(F)F",
+        r"C[C@@H]1CCN(C[C@@H]1N(C)c2ncnc3[nH]ccc23)C(=O)CC#N",
+        r"Oc1ccc(\C=C\c2cc(O)cc(O)c2)cc1",
     ],
 }
 
 
 @pytest.fixture
 def client():
-    tas_cheminformatics.app.testing = True
-    with tas_cheminformatics.app.test_client() as client:
+    lspcheminf.app.testing = True
+    with lspcheminf.app.test_client() as client:
         yield client

@@ -3,9 +3,9 @@ import sys
 from setuptools import setup
 
 setup(
-    name="tas_cheminformatics",
+    name="lspcheminf",
     version="0.2",
-    packages=["tas_cheminformatics"],
+    packages=["lspcheminf"],
     include_package_data=True,
     install_requires=[
         "click",
@@ -24,6 +24,6 @@ setup(
     ],
     entry_points="""
         [console_scripts]
-        tautomers=tas_cheminformatics.tautomers_cli:cli
+        tautomers=lspcheminf.tautomers_cli:cli
     """,
 )

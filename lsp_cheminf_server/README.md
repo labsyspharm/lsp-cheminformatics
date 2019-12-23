@@ -1,4 +1,4 @@
-# TAS Cheminformatics Tools
+# LSP Cheminformatics Tools
 
 Set of chemoinformatics tools to find canonical representations of compounds
 and fingerprint them. Implemented as python package with commandline interface
@@ -17,16 +17,16 @@ Once anaconda is installed, create a new environment for this package and instal
 ([see here for more help](https://www.rdkit.org/docs/Install.html)).
 
 ```bash
-conda create -c rdkit -n tas_cheminformatics python=3.7 rdkit click flask pandas gunicorn marshmallow apispec
-conda activate tas_cheminformatics
+conda create -c rdkit -n lspcheminf_env python=3.7 rdkit click flask pandas gunicorn marshmallow apispec
+conda activate lspcheminf_env
 conda install -c conda-forge molvs
 ```
 
-### Installing the TAS Cheminformatics tools
+### Installing the LSP Cheminformatics tools
 
 ```bash
-conda activate tas_cheminformatics
-pip install --no-deps 'git+https://github.com/labsyspharm/small-molecule-suite-maintenance.git#egg=tas_cheminformatics&subdirectory=cheminformatics'
+conda activate lspcheminf_env
+pip install --no-deps 'git+https://github.com/labsyspharm/lsp-cheminformatics.git#egg=lspcheminf&subdirectory=lsp_cheminf_server'
 ```
 
 ## Running the server
@@ -34,8 +34,8 @@ pip install --no-deps 'git+https://github.com/labsyspharm/small-molecule-suite-m
 The JSON API is exposed by running the server in the background. The following command runs the server on port 8000.
 
 ```bash
-conda activate tas_cheminformatics
-gunicorn --workers=4 -b 127.0.0.1:8000 -t 600 tas_cheminformatics
+conda activate lspcheminf_env
+gunicorn --workers=4 -b 127.0.0.1:8000 -t 600 lspcheminf
 ```
 
 Once the server is running the documentation for the JSON API is available at [http://127.0.0.1:8000/doc](http://127.0.0.1:8000/doc).
@@ -47,5 +47,5 @@ In this example we use the JSON API from R to query for the chemical similaritie
 ### Installing the R client
 
 ```r
-devtools::install_github("labsyspharm/small-molecule-suite-maintanance", subdir = "")
+devtools::install_github("labsyspharm/lsp-cheminformatics", subdir = "lsp_cheminf_rclient")
 ```

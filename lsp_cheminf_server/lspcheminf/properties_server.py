@@ -3,7 +3,7 @@ from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Draw
 from rdkit.Chem.Descriptors import MolWt
 
-from tas_cheminformatics import app
+from lspcheminf import app
 from .schemas import (
     ConvertIDSchema,
     ConvertIdResultSchema,

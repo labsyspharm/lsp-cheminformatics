@@ -13,7 +13,7 @@ def doc_route():
     return app.send_static_file("apidoc.html")
 
 
-import tas_cheminformatics.tautomer_server
-import tas_cheminformatics.properties_server
-import tas_cheminformatics.draw_server
-import tas_cheminformatics.fingerprint_server
+import lspcheminf.tautomer_server
+import lspcheminf.properties_server
+import lspcheminf.draw_server
+import lspcheminf.fingerprint_server

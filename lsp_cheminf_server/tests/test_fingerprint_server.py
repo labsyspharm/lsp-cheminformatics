@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-import tas_cheminformatics
+import lspcheminf
 from test_common import test_compounds, client
 
 

@@ -9,10 +9,10 @@ from flask import Flask, request, send_file
 from rdkit.Chem import AllChem
 from rdkit.Chem import inchi
 
-from tas_cheminformatics import app
-from tas_cheminformatics.util import convert_compound_request
-from tas_cheminformatics.fingerprint import calculate_similarity
-from tas_cheminformatics.schemas import SimilaritySchema, SimilarityResultSchema
+from lspcheminf import app
+from lspcheminf.util import convert_compound_request
+from lspcheminf.fingerprint import calculate_similarity
+from lspcheminf.schemas import SimilaritySchema, SimilarityResultSchema
 
 
 @app.route("/fingerprints/similarity", methods=["GET", "POST"])

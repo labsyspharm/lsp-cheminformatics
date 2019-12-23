@@ -2,7 +2,7 @@ from flask import request
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Draw, inchi
 
-from tas_cheminformatics import app
+from lspcheminf import app
 from .schemas import (
     TautomerizeSchema,
     CanonicalizeSchema,

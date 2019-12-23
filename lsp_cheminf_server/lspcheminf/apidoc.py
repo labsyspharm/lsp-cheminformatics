@@ -4,8 +4,8 @@ from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from apispec_webframeworks.flask import FlaskPlugin
 
-from tas_cheminformatics import app
-import tas_cheminformatics.schemas as schemas
+from lspcheminf import app
+import lspcheminf.schemas as schemas
 
 spec = APISpec(
     title="TAS Chemoinformatics tools",
@@ -27,5 +27,5 @@ with app.test_request_context():
         spec.path(view=p)
 
 if __name__ == "__main__":
-    with open("./tas_cheminformatics/static/apidoc.json", "w") as f:
+    with open("./lspcheminf/static/apidoc.json", "w") as f:
         json.dump(spec.to_dict(), f)
