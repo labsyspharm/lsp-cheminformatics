@@ -196,8 +196,7 @@ write_rds(
   compress = "gz"
 )
 
-# Liganded genome 3 cmpds < 10 uM
-liganded_genome <-
+# optimal_libraries <- read_rds(file.path(dir_release, "optimal_library.rds"))
 
 # Criteria clinical phase >=1 and affinity IC50_Q1 <= 1 uM
 clinical_compounds <- clinical_info %>%
@@ -210,6 +209,18 @@ clinical_compounds <- clinical_info %>%
         filter(.y, Q1 <= 1000),
         by = c("lspci_id" = "eq_class")
       )
+    )
+  )
+
+# Calculate liganded genome ----------------------------------------------------
+###############################################################################T
+
+# Liganded genome 3 cmpds < 10 uM
+liganded_genome <- affinity %>%
+  mutate(
+    data = map(
+      data,
+
     )
   )
 
