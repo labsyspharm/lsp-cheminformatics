@@ -93,6 +93,33 @@ class SimilarityResultSchema(Schema):
     score = fields.List(fields.Float, required=True)
 
 
+class SubstructureSchema(Schema):
+    query = fields.Nested(
+        CompoundsSchema,
+        description="Query compounds. Their structure will be compared to the target compounds.",
+        required=True,
+    )
+    target = fields.Nested(
+        CompoundsSchema,
+        description="Target compounds. The substructure of targets will be scanned for matches with the query structures.",
+        required=True,
+    )
+    substructure_args = fields.Mapping(
+        keys=fields.String,
+        values=fields.Field,
+        missing={},
+        description="Optional additional arguments passed to RDKit substructure matching function. "
+        "See http://www.rdkit.org/docs/source/rdkit.Chem.rdchem.html#rdkit.Chem.rdchem.Mol.GetSubstructMatches",
+        example='{"useChirality": True, "maxMatches": 3}',
+    )
+
+
+class SubstructureResultSchema(Schema):
+    query = fields.List(fields.String, required=True)
+    target = fields.List(fields.String, required=True)
+    match = fields.List(fields.List(fields.Integer), required=True)
+
+
 class ConvertIDSchema(Schema):
     compounds = fields.Nested(CompoundsSchema, required=True)
     target_identifier = identifier_field

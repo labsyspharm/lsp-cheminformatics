@@ -1,5 +1,7 @@
 from functools import partial
+from typing import Mapping, List, Any, Tuple
 
+from rdkit.Chem import Mol
 from rdkit import DataStructs
 from rdkit.Chem import AllChem
 
@@ -9,7 +11,9 @@ fingerprint_functions = {
 }
 
 
-def calculate_fingerprint(mol, fingerprint_type="morgan", fingerprint_args={}):
+def calculate_fingerprint(
+    mol: Mol, fingerprint_type: str = "morgan", fingerprint_args: Mapping[str, Any] = {}
+) -> DataStructs.ExplicitBitVect:
     if not fingerprint_type in fingerprint_functions:
         raise ValueError(
             "`fingerprint_type` must be one of ", list(fingerprint_functions.keys())
@@ -18,8 +22,11 @@ def calculate_fingerprint(mol, fingerprint_type="morgan", fingerprint_args={}):
 
 
 def calculate_similarity(
-    query, targets, fingerprint_type="morgan", fingerprint_args={}
-):
+    query: Mol,
+    targets: Mapping[str, Mol],
+    fingerprint_type: str = "morgan",
+    fingerprint_args: Mapping[str, Any] = {},
+) -> Mapping[str, float]:
     query_fp = calculate_fingerprint(query, fingerprint_type, fingerprint_args)
     return {
         n: DataStructs.FingerprintSimilarity(
@@ -27,3 +34,14 @@ def calculate_similarity(
         )
         for n, t in targets.items()
     }
+
+
+def find_substructure_matches(
+    query: Mol, targets: Mapping[str, Mol], substructure_args: Mapping[str, Any] = {}
+) -> Mapping[str, Tuple[Tuple[int]]]:
+    res = {}
+    for n, t in targets.items():
+        match = t.GetSubstructMatches(query, **substructure_args)
+        if len(match) > 0:
+            res[n] = match
+    return res
