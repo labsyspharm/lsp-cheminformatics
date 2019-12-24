@@ -2,4 +2,5 @@
 
 export("%>%")
 export(chemical_similarity)
+export(match_substructure)
 importFrom(magrittr,"%>%")

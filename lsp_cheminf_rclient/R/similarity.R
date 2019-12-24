@@ -52,3 +52,63 @@ chemical_similarity <- function(
   ) %>%
     tibble::as_tibble()
 }
+
+#' Find substructure matches.
+#'
+#' Find targets whose substructure matches with a query.
+#'
+#' @param queries A character vector of query compounds or fragments.  Can optionally be named.
+#'   Their structure will be compared to the substructure of the target compounds.
+#' @param query_identifier Chemical identifier used for the queries.
+#' @param target_inchis An optional character vector of compound inchis.
+#'   The substructure of targets will be scanned for matches with the query structures. If not given,
+#'   the all pairwise combinations between query compounds are scanned for matches.
+#' @param substructure_args Optional additional arguments passed to RDKit substructure matching function.
+#'   See http://www.rdkit.org/docs/source/rdkit.Chem.rdchem.html#rdkit.Chem.rdchem.Mol.GetSubstructMatches
+#' @return A tibble with three columns, containing names of query and target compounds
+#'   and the atom indices of substructre matches. If no match is found the query
+#'   target combination is not included.
+#' @examples
+#' match_substructure(
+#'   c("secondary_amine" = "[H]N(C)C"),
+#'   c(
+#'     "tofacitnib" = "InChI=1S/C16H20N6O/c1-11-5-8-22(14(23)3-6-17)9-13(11)21(2)16-12-4-7-18-15(12)19-10-20-16/h4,7,10-11,13H,3,5,8-9H2,1-2H3,(H,18,19,20)/t11-,13+/m1/s1",
+#'     "aspirin" = "InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)"
+#'   ),
+#'   query_identifier = "smiles"
+#' )
+#' @export
+match_substructure <- function(
+  queries,
+  target_inchis = NULL,
+  query_identifier = c("inchi", "smiles", "smarts"),
+  substructure_args = NULL
+) {
+  query_identifier <- match.arg(query_identifier)
+  query_cmpds <- make_compound_list(queries, identifier = query_identifier)
+  target_cmpds <- if (!is.null(target_inchis))
+    make_compound_list(target_inchis)
+  else
+    query_cmpds
+  request_body <- list(
+    query = query_cmpds,
+    target = target_cmpds
+  )
+  if (!is.null(substructure_args))
+    request_body[["substructure_args"]] <- substructure_args
+  # browser()
+  substructure_response <- httr::POST(
+    "http://127.0.0.1:8000/fingerprints/substructure",
+    body = request_body,
+    encode = "json",
+    httr::accept_json()
+  )
+  httr::content(
+    substructure_response,
+    as = "parsed",
+    type = "application/json",
+    simplifyVector = TRUE,
+    simplifyMatrix = FALSE
+  ) %>%
+    tibble::as_tibble()
+}
