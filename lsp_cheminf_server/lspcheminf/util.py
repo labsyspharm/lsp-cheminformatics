@@ -1,7 +1,11 @@
 from rdkit import Chem
 from rdkit.Chem import inchi
 
-identifier_mol_mapping = {"smiles": Chem.MolFromSmiles, "inchi": inchi.MolFromInchi}
+identifier_mol_mapping = {
+    "smiles": Chem.MolFromSmiles,
+    "inchi": inchi.MolFromInchi,
+    "smarts": Chem.MolFromSmarts,
+}
 
 mol_identifier_mapping = {
     "smiles": Chem.MolToSmiles,
