@@ -1,8 +1,12 @@
 # LSP Cheminformatics Tools
 
-Set of chemoinformatics tools to find canonical representations of compounds
-and fingerprint them. Implemented as python package with commandline interface
-and webserver with JSON API.
+Set of chemoinformatics tools to perform operations such as finding the canonical representations of compounds
+or fingerprinting them. Implemented as python package with commandline interface and webserver with JSON API.
+A client for the R programming language is also included.
+
+[RDKit](http://www.rdkit.org) is used for fingerprinting, chemical similarity calculations and substructure
+searches. [MolVS](https://github.com/mcs07/MolVS) is used for molecule validation and standardization.
+Commercial availability information is obtained from [ZINC](http://zinc15.docking.org).
 
 ## Installation
 
