@@ -33,6 +33,13 @@ conda activate lspcheminf_env
 pip install --no-deps 'git+https://github.com/labsyspharm/lsp-cheminformatics.git#egg=lspcheminf&subdirectory=lsp_cheminf_server'
 ```
 
+To upgrade to a newer version if the LSP Cheminformatics tools are already installed:
+
+``` bash
+conda activate lspcheminf_env
+pip install --no-deps --upgrade 'git+https://github.com/labsyspharm/lsp-cheminformatics.git#egg=lspcheminf&subdirectory=lsp_cheminf_server'
+```
+
 ## Running the server
 
 The JSON API is exposed by running the server in the background. The following command runs the server on port 8000.
@@ -42,7 +49,9 @@ conda activate lspcheminf_env
 gunicorn --workers=4 -b 127.0.0.1:8000 -t 600 lspcheminf
 ```
 
-Once the server is running the documentation for the JSON API is available at [http://127.0.0.1:8000/doc](http://127.0.0.1:8000/doc).
+Once this command is issued the server will continue running until it is manually stopped using the Ctrl-C key combination.
+
+While the server is running the documentation for the JSON API is available at [http://127.0.0.1:8000/doc](http://127.0.0.1:8000/doc).
 
 ## Querying the server
 
@@ -54,6 +63,8 @@ that implements the JSON API in simple functions. In this example we use the R c
 ``` r
 devtools::install_github("labsyspharm/lsp-cheminformatics", subdir = "lsp_cheminf_rclient")
 ```
+
+The client only functions while the lspcheminf server is running.
 
 ### Query for similarities
 
