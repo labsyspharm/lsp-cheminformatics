@@ -23,7 +23,7 @@ def test_tautomerize(client):
     assert res.status_code == 200
     res_json = res.get_json()
     assert len(res_json["tautomers"]) == 2
-    assert tuple(len(v) for v in res_json["tautomers"].values()) == (1, 6)
+    assert tuple(len(v["compounds"]) for v in res_json["tautomers"].values()) == (1, 4)
 
 
 def test_canonicalize(client):
