@@ -61,15 +61,3 @@ def canonicalize(compounds, id_used, standardize=False):
 def tautomerize(mol, max_tautomers=10):
     tauts = make_tautomers(mol, max_tautomers=max_tautomers)
     return tauts
-
-
-def draw_molecules(compounds, id_used, names=None):
-    if not isinstance(compounds, list):
-        compounds = [compounds]
-    mols = [identifier_mol_mapping[id_used](c) for c in compounds]
-    for m in mols:
-        AllChem.Compute2DCoords(m)
-    img = Draw.MolsToGridImage(
-        mols, molsPerRow=4, subImgSize=(200, 200), legends=names, useSVG=True
-    )
-    return img

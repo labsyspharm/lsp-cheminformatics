@@ -45,8 +45,8 @@ def similarity_route():
         raise ValueError(
             "Must request fewer than 100,000 similarities per request for performance reasons."
         )
-    query_mols = convert_compound_request(query)
-    target_mols = convert_compound_request(target)
+    query_mols, query_skipped = convert_compound_request(query)
+    target_mols, target_skipped = convert_compound_request(target)
     similarities = {
         qn: calculate_similarity(
             q,
@@ -90,8 +90,8 @@ def substructure_route():
         raise ValueError(
             "Must request fewer than 100,000 substructures per request for performance reasons."
         )
-    query_mols = convert_compound_request(query)
-    target_mols = convert_compound_request(target)
+    query_mols, query_skipped = convert_compound_request(query)
+    target_mols, target_skipped = convert_compound_request(target)
     substructures = {
         qn: find_substructure_matches(
             q, target_mols, substructure_args=data["substructure_args"]

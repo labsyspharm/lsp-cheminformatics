@@ -8,6 +8,8 @@ from molvs import tautomer
 def draw_molecule_grid(compounds, names=None):
     for m in compounds:
         AllChem.Compute2DCoords(m)
+    if names is not None:
+        names = [str(n) for n in names]
     img = Draw.MolsToGridImage(
         compounds, molsPerRow=4, subImgSize=(200, 200), legends=names, useSVG=True
     )

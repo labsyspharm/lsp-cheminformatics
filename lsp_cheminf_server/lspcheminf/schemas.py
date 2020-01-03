@@ -42,6 +42,7 @@ class TautomerizeResultSchema(Schema):
     tautomers = fields.Mapping(
         keys=fields.String, values=fields.Nested(CompoundsSchema), required=True
     )
+    skipped = skipped_field
 
 
 class CanonicalizeSchema(Schema):

@@ -10,7 +10,7 @@ from .schemas import (
     CalculateMassSchema,
     CalculateMassResultSchema,
 )
-from .util import identifier_mol_mapping, mol_identifier_mapping
+from .util import convert_compound_request, mol_identifier_mapping
 
 
 @app.route("/properties/convert", methods=["POST"])
@@ -32,16 +32,15 @@ def convert_ids():
     """
     data = ConvertIDSchema().load(request.json)
     # print(f"Requested conversion of {format_in} to {format_out}")
-    mol_in_mapping = identifier_mol_mapping[data["compounds"]["identifier"]]
+    compounds, skipped = convert_compound_request(data["compounds"])
     mol_out_mapping = mol_identifier_mapping[data["target_identifier"]]
-    skipped = []
-    compounds_out = {"compounds": [], "identifier": data["target_identifier"]}
-    for m in data["compounds"]["compounds"]:
+    compounds_out = {"compounds": [], "names": [], "identifier": data["target_identifier"]}
+    for n, m in compounds.items():
         try:
-            mol = mol_in_mapping(m)
-            compounds_out["compounds"].append(mol_out_mapping(mol))
+            compounds_out["compounds"].append(mol_out_mapping(m))
+            compounds_out["names"].append(n)
         except Exception as e:
-            skipped.append(m)
+            skipped.append(mol_identifier_mapping[data["compounds"]["identifier"]](m))
     out = {"compounds": compounds_out, "skipped": skipped}
     ConvertIdResultSchema().validate(out)
     return out
@@ -66,15 +65,13 @@ def calculate_mass_route():
     """
     data = CalculateMassSchema().load(request.json)
     # print(f"Requested conversion of {format_in} to {format_out}")
-    mol_in_mapping = identifier_mol_mapping[data["compounds"]["identifier"]]
-    skipped = []
+    compounds, skipped = convert_compound_request(data["compounds"])
     mass_out = {}
-    for m in data["compounds"]["compounds"]:
+    for n, m in compounds.items():
         try:
-            mol = mol_in_mapping(m)
-            mass_out[m] = MolWt(mol)
+            mass_out[n] = MolWt(m)
         except Exception as e:
-            skipped.append(m)
+            skipped.append(mol_identifier_mapping[data["compounds"]["identifier"]](m))
     out = {"mass": mass_out, "skipped": skipped}
     CalculateMassResultSchema().validate(out)
     return out

@@ -10,7 +10,11 @@ from .schemas import (
     CanonicalizeResultSchema,
 )
 from .tautomers import canonicalize, tautomerize
-from .util import identifier_mol_mapping, mol_identifier_mapping
+from .util import (
+    identifier_mol_mapping,
+    mol_identifier_mapping,
+    convert_compound_request,
+)
 
 
 @app.route("/tautomers/enumerate", methods=["POST"])
@@ -31,22 +35,22 @@ def tautomerize_route():
               schema: TautomerizeResultSchema
     """
     data = TautomerizeSchema().load(request.json)
+    compounds, skipped = convert_compound_request(data["compounds"])
     id_used = data["compounds"]["identifier"]
-    # print(f"Requested tautomers for {id_used} {mol_input}")
     out_tauts = {}
-    for in_id in data["compounds"]["compounds"]:
+    for n, m in compounds.items():
         try:
-            tauts = tautomerize(
-                identifier_mol_mapping[id_used](in_id), data.get("max_tautomers", 10)
-            )
+            tauts = tautomerize(m, data.get("max_tautomers", 10))
         except Exception as e:
             print(e)
+            skipped.append(mol_identifier_mapping[data["compounds"]["identifier"]](m))
             continue
         print("found", len(tauts))
-        out_tauts[in_id] = [mol_identifier_mapping[id_used](t) for t in tauts]
-    out = {"tautomers": out_tauts}
-    print("totl", len(out_tauts))
-    # print(f"Found tautomers: {len(tauts)}")
+        out_tauts[n] = {
+            "compounds": list(set(mol_identifier_mapping[id_used](t) for t in tauts)),
+            "identifier": id_used,
+        }
+    out = {"tautomers": out_tauts, "skipped": skipped}
     TautomerizeResultSchema().validate(out)
     return out
 

@@ -1,3 +1,5 @@
+from typing import Mapping, List, Tuple, Any
+
 from rdkit import Chem
 from rdkit.Chem import inchi
 
@@ -14,9 +16,17 @@ mol_identifier_mapping = {
 }
 
 
-def convert_compound_request(compounds):
+def convert_compound_request(
+    compounds: Mapping
+) -> Tuple[Mapping[Any, Chem.Mol], List[Tuple[Any, str]]]:
     names = compounds.get("names", list(range(len(compounds["compounds"]))))
-    return {
-        n: identifier_mol_mapping[compounds["identifier"]](m)
-        for n, m in zip(names, compounds["compounds"])
-    }
+    skipped = []
+    converted = {}
+    for n, m in zip(names, compounds["compounds"]):
+        try:
+            mol = identifier_mol_mapping[compounds["identifier"]](m)
+        except Exception:
+            skipped.append((n, m))
+            continue
+        converted[n] = mol
+    return converted, skipped
