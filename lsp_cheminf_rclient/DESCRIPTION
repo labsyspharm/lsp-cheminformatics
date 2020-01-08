@@ -7,9 +7,12 @@ Authors@R:
            role = c("aut", "cre"),
            email = "clemens.hug@gmail.com",
            comment = c(ORCID = "0000-0002-8299-3274"))
-Description: What the package does (one paragraph).
+Description: Set of chemoinformatics tools to perform operations such as finding
+    the canonical representations of compounds or fingerprinting them.
 License: MIT + file LICENSE
 Encoding: UTF-8
+URL: https://labsyspharm.github.io/lsp-cheminformatics/, https://github.com/labsyspharm/lsp-cheminformatics
+BugReports: https://github.com/labsyspharm/lsp-cheminformatics/issues
 LazyData: true
 Imports: 
     httr,
