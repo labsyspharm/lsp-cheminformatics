@@ -28,7 +28,11 @@ def draw_molecule_grid_route():
     data = DrawGridSchema().load(request.json)
     # print(f"Requested conversion of {format_in} to {format_out}")
     molecules, skipped = convert_compound_request(data["compounds"])
-    svg = draw_molecule_grid(list(molecules.values()), names=list(molecules.keys()))
+    svg = draw_molecule_grid(
+        list(molecules.values()),
+        names=list(molecules.keys()),
+        draw_args=data["draw_args"],
+    )
     out = {"svg": svg, "skipped": skipped}
     DrawGridResultSchema().validate(out)
     return out

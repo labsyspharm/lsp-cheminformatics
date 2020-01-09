@@ -133,6 +133,14 @@ class ConvertIdResultSchema(Schema):
 
 class DrawGridSchema(Schema):
     compounds = fields.Nested(CompoundsSchema, required=True)
+    draw_args = fields.Mapping(
+        keys=fields.String,
+        values=fields.Field,
+        missing={},
+        description="Optional additional arguments passed to RDKit molecule drawing function. "
+        "See https://www.rdkit.org/docs/source/rdkit.Chem.Draw.html?highlight=molstogridimage#rdkit.Chem.Draw.MolsToGridImage",
+        example='{"molsPerRow": 6}',
+    )
 
 
 class DrawGridResultSchema(Schema):
