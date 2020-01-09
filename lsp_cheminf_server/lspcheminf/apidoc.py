@@ -27,5 +27,7 @@ with app.test_request_context():
         spec.path(view=p)
 
 if __name__ == "__main__":
-    with open("./lspcheminf/static/apidoc.json", "w") as f:
+    with open("./lsp_cheminf_server/lspcheminf/static/apidoc.json", "w") as f:
+        json.dump(spec.to_dict(), f)
+    with open("./docs/api/apidoc.json", "w") as f:
         json.dump(spec.to_dict(), f)
