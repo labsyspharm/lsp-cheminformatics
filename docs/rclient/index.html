@@ -67,8 +67,72 @@
 
       </header><div class="row">
   <div class="contents col-md-9">
-Set of chemoinformatics tools to perform operations such as finding
-    the canonical representations of compounds or fingerprinting them.
+<div id="lsp-cheminformatics-r-client" class="section level1">
+<div class="page-header"><h1 class="hasAnchor">
+<a href="#lsp-cheminformatics-r-client" class="anchor"></a>LSP Cheminformatics R client</h1></div>
+<p>The R client provides easy access to the functionality provided by the LSP Cheminformatics server.</p>
+<div id="installing-the-r-client" class="section level2">
+<h2 class="hasAnchor">
+<a href="#installing-the-r-client" class="anchor"></a>Installing the R client</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb1-1" data-line-number="1">devtools<span class="op">::</span><span class="kw"><a href="https://rdrr.io/pkg/devtools/man/remote-reexports.html">install_github</a></span>(<span class="st">"labsyspharm/lsp-cheminformatics"</span>, <span class="dt">subdir =</span> <span class="st">"lsp_cheminf_rclient"</span>)</a></code></pre></div>
+<p>The client only functions while the lspcheminf server is running.</p>
+</div>
+<div id="query-for-similarities" class="section level2">
+<h2 class="hasAnchor">
+<a href="#query-for-similarities" class="anchor"></a>Query for similarities</h2>
+<p>The R client can be used to query the chemical similarity between compounds. By default the Morgan fingerprinting algorithm is used.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb2-1" data-line-number="1"><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span>(lspcheminf)</a>
+<a class="sourceLine" id="cb2-2" data-line-number="2"><span class="kw"><a href="reference/chemical_similarity.html">chemical_similarity</a></span>(</a>
+<a class="sourceLine" id="cb2-3" data-line-number="3">  <span class="kw"><a href="https://rdrr.io/r/base/c.html">c</a></span>(<span class="st">"resveratrol"</span> =<span class="st"> "InChI=1S/C14H12O3/c15-12-5-3-10(4-6-12)1-2-11-7-13(16)9-14(17)8-11/h1-9,15-17H/b2-1+"</span>),</a>
+<a class="sourceLine" id="cb2-4" data-line-number="4">  <span class="kw"><a href="https://rdrr.io/r/base/c.html">c</a></span>(</a>
+<a class="sourceLine" id="cb2-5" data-line-number="5">    <span class="st">"tofacitnib"</span> =<span class="st"> "InChI=1S/C16H20N6O/c1-11-5-8-22(14(23)3-6-17)9-13(11)21(2)16-12-4-7-18-15(12)19-10-20-16/h4,7,10-11,13H,3,5,8-9H2,1-2H3,(H,18,19,20)/t11-,13+/m1/s1"</span>,</a>
+<a class="sourceLine" id="cb2-6" data-line-number="6">    <span class="st">"aspirin"</span> =<span class="st"> "InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)"</span></a>
+<a class="sourceLine" id="cb2-7" data-line-number="7">  )</a>
+<a class="sourceLine" id="cb2-8" data-line-number="8">)</a>
+<a class="sourceLine" id="cb2-9" data-line-number="9"><span class="co">#&gt; # A tibble: 2 x 3</span></a>
+<a class="sourceLine" id="cb2-10" data-line-number="10"><span class="co">#&gt;   query        score target</span></a>
+<a class="sourceLine" id="cb2-11" data-line-number="11"><span class="co">#&gt;   &lt;chr&gt;        &lt;dbl&gt; &lt;chr&gt;</span></a>
+<a class="sourceLine" id="cb2-12" data-line-number="12"><span class="co">#&gt; 1 resveratrol 0.0571 tofacitnib</span></a>
+<a class="sourceLine" id="cb2-13" data-line-number="13"><span class="co">#&gt; 2 resveratrol 0.132  aspirin</span></a></code></pre></div>
+<p>If we want to compute the similarity based on topological fingerprints instead and pass some custom arguments to the RDKit function we can do this:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb3-1" data-line-number="1"><span class="kw"><a href="reference/chemical_similarity.html">chemical_similarity</a></span>(</a>
+<a class="sourceLine" id="cb3-2" data-line-number="2"><span class="kw"><a href="https://rdrr.io/r/base/c.html">c</a></span>(<span class="st">"resveratrol"</span> =<span class="st"> "InChI=1S/C14H12O3/c15-12-5-3-10(4-6-12)1-2-11-7-13(16)9-14(17)8-11/h1-9,15-17H/b2-1+"</span>),</a>
+<a class="sourceLine" id="cb3-3" data-line-number="3"><span class="kw"><a href="https://rdrr.io/r/base/c.html">c</a></span>(</a>
+<a class="sourceLine" id="cb3-4" data-line-number="4">  <span class="st">"tofacitnib"</span> =<span class="st"> "InChI=1S/C16H20N6O/c1-11-5-8-22(14(23)3-6-17)9-13(11)21(2)16-12-4-7-18-15(12)19-10-20-16/h4,7,10-11,13H,3,5,8-9H2,1-2H3,(H,18,19,20)/t11-,13+/m1/s1"</span>,</a>
+<a class="sourceLine" id="cb3-5" data-line-number="5">  <span class="st">"aspirin"</span> =<span class="st"> "InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)"</span></a>
+<a class="sourceLine" id="cb3-6" data-line-number="6">),</a>
+<a class="sourceLine" id="cb3-7" data-line-number="7"><span class="dt">fingerprint_type =</span> <span class="st">"topological"</span>,</a>
+<a class="sourceLine" id="cb3-8" data-line-number="8"><span class="dt">fingerprint_args =</span> <span class="kw"><a href="https://rdrr.io/r/base/list.html">list</a></span>(<span class="st">"minPath"</span> =<span class="st">  </span><span class="dv">2</span>, <span class="st">"useHs"</span> =<span class="st"> </span><span class="ot">FALSE</span>)</a>
+<a class="sourceLine" id="cb3-9" data-line-number="9">)</a>
+<a class="sourceLine" id="cb3-10" data-line-number="10"><span class="co">#&gt; # A tibble: 2 x 3</span></a>
+<a class="sourceLine" id="cb3-11" data-line-number="11"><span class="co">#&gt;   query        score target</span></a>
+<a class="sourceLine" id="cb3-12" data-line-number="12"><span class="co">#&gt;   &lt;chr&gt;        &lt;dbl&gt; &lt;chr&gt;</span></a>
+<a class="sourceLine" id="cb3-13" data-line-number="13"><span class="co">#&gt; 1 resveratrol 0.0967 tofacitnib</span></a>
+<a class="sourceLine" id="cb3-14" data-line-number="14"><span class="co">#&gt; 2 resveratrol 0.198  aspirin</span></a></code></pre></div>
+</div>
+<div id="query-for-substructure-matches" class="section level2">
+<h2 class="hasAnchor">
+<a href="#query-for-substructure-matches" class="anchor"></a>Query for substructure matches</h2>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb4-1" data-line-number="1"><span class="kw"><a href="reference/match_substructure.html">match_substructure</a></span>(</a>
+<a class="sourceLine" id="cb4-2" data-line-number="2">  <span class="kw"><a href="https://rdrr.io/r/base/c.html">c</a></span>(<span class="st">"secondary_amine"</span> =<span class="st"> "[H]N(C)C"</span>),</a>
+<a class="sourceLine" id="cb4-3" data-line-number="3">  <span class="kw"><a href="https://rdrr.io/r/base/c.html">c</a></span>(</a>
+<a class="sourceLine" id="cb4-4" data-line-number="4">    <span class="st">"tofacitnib"</span> =<span class="st"> "InChI=1S/C16H20N6O/c1-11-5-8-22(14(23)3-6-17)9-13(11)21(2)16-12-4-7-18-15(12)19-10-20-16/h4,7,10-11,13H,3,5,8-9H2,1-2H3,(H,18,19,20)/t11-,13+/m1/s1"</span>,</a>
+<a class="sourceLine" id="cb4-5" data-line-number="5">    <span class="st">"aspirin"</span> =<span class="st"> "InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)"</span></a>
+<a class="sourceLine" id="cb4-6" data-line-number="6">  ),</a>
+<a class="sourceLine" id="cb4-7" data-line-number="7">  <span class="dt">query_identifier =</span> <span class="st">"smiles"</span></a>
+<a class="sourceLine" id="cb4-8" data-line-number="8">)</a>
+<a class="sourceLine" id="cb4-9" data-line-number="9"><span class="co">#&gt; # A tibble: 1 x 3</span></a>
+<a class="sourceLine" id="cb4-10" data-line-number="10"><span class="co">#&gt;   match      query           target</span></a>
+<a class="sourceLine" id="cb4-11" data-line-number="11"><span class="co">#&gt;   &lt;list&gt;     &lt;chr&gt;           &lt;chr&gt;</span></a>
+<a class="sourceLine" id="cb4-12" data-line-number="12"><span class="co">#&gt; 1 &lt;list [6]&gt; secondary_amine tofacitnib</span></a></code></pre></div>
+<p>Six matches for secondary amine groups where found in tofacitnib. The atom indices for each match are stored in the <code>match</code> list column.</p>
+</div>
+<div id="additional-functionality" class="section level2">
+<h2 class="hasAnchor">
+<a href="#additional-functionality" class="anchor"></a>Additional functionality</h2>
+<p>At the moment there is no R client code yet for the additional functionalities of the JSON API, like the molecule drawing, ID conversion etc.</p>
+</div>
+</div>
   </div>
 
   <div class="col-md-3 hidden-xs hidden-sm" id="sidebar">
