@@ -149,7 +149,25 @@ used to align them for plotting.</p></td>
     <p>Invisibly returns character with svg file content.</p>
 
     <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
-    <pre class="examples"></pre>
+    <pre class="examples"><div class='input'><span class='fu'>draw_compound_grid</span>(
+  <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(
+    <span class='st'>"tofacitnib"</span> <span class='kw'>=</span> <span class='st'>"InChI=1S/C16H20N6O/c1-11-5-8-22(14(23)3-6-17)9-13(11)21(2)16-12-4-7-18-15(12)19-10-20-16/h4,7,10-11,13H,3,5,8-9H2,1-2H3,(H,18,19,20)/t11-,13+/m1/s1"</span>,
+    <span class='st'>"aspirin"</span> <span class='kw'>=</span> <span class='st'>"InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)"</span>
+  ),
+  <span class='kw'>file</span> <span class='kw'>=</span> <span class='st'>"test.svg"</span>,
+  <span class='kw'>draw_args</span> <span class='kw'>=</span> <span class='fu'><a href='https://rdrr.io/r/base/list.html'>list</a></span>(<span class='kw'>molsPerRow</span> <span class='kw'>=</span> <span class='fl'>6</span>)
+)
+
+<span class='fu'>draw_compound_grid</span>(
+  <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(
+    <span class='st'>"tofacitnib"</span> <span class='kw'>=</span> <span class='st'>"InChI=1S/C16H20N6O/c1-11-5-8-22(14(23)3-6-17)9-13(11)21(2)16-12-4-7-18-15(12)19-10-20-16/h4,7,10-11,13H,3,5,8-9H2,1-2H3,(H,18,19,20)/t11-,13+/m1/s1"</span>,
+    <span class='st'>"aspirin"</span> <span class='kw'>=</span> <span class='st'>"InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)"</span>
+  ),
+  <span class='kw'>file</span> <span class='kw'>=</span> <span class='st'>"test.svg"</span>,
+  <span class='kw'>common_core</span> <span class='kw'>=</span> <span class='st'>"[H]N(C)C"</span>,
+  <span class='kw'>common_core_identifier</span> <span class='kw'>=</span> <span class='st'>"smiles"</span>,
+  <span class='kw'>draw_args</span> <span class='kw'>=</span> <span class='fu'><a href='https://rdrr.io/r/base/list.html'>list</a></span>(<span class='kw'>molsPerRow</span> <span class='kw'>=</span> <span class='fl'>6</span>)
+)</div></pre>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="sidebar">
     <h2>Contents</h2>
