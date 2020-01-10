@@ -2,6 +2,7 @@
 
 export("%>%")
 export(chemical_similarity)
+export(convert_compound_identifier)
 export(draw_compound_grid)
 export(match_substructure)
 importFrom(magrittr,"%>%")

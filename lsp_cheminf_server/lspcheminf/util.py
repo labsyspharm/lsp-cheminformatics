@@ -13,6 +13,7 @@ mol_identifier_mapping = {
     "smiles": Chem.MolToSmiles,
     "inchi": inchi.MolToInchi,
     "inchi_key": inchi.MolToInchiKey,
+    "smarts": Chem.MolToSmarts
 }
 
 
