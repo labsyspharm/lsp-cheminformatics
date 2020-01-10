@@ -133,6 +133,10 @@ class ConvertIdResultSchema(Schema):
 
 class DrawGridSchema(Schema):
     compounds = fields.Nested(CompoundsSchema, required=True)
+    common_core = fields.Nested(
+        CompoundsSchema,
+        description="Optionally, a single common core structure of all compounds used to align them for plotting."
+    )
     draw_args = fields.Mapping(
         keys=fields.String,
         values=fields.Field,
