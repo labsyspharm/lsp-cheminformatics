@@ -4,6 +4,9 @@ layout: default
 
 # LSP Cheminformatics Toolkit
 
+* TOC
+{:toc}
+
 ## Components
 
 ### LSP Cheminformatics Server
