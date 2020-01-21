@@ -34,7 +34,11 @@ def convert_ids():
     # print(f"Requested conversion of {format_in} to {format_out}")
     compounds, skipped = convert_compound_request(data["compounds"])
     mol_out_mapping = mol_identifier_mapping[data["target_identifier"]]
-    compounds_out = {"compounds": [], "names": [], "identifier": data["target_identifier"]}
+    compounds_out = {
+        "compounds": [],
+        "names": [],
+        "identifier": data["target_identifier"],
+    }
     for n, m in compounds.items():
         try:
             compounds_out["compounds"].append(mol_out_mapping(m))

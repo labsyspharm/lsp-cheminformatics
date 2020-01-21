@@ -10,7 +10,9 @@ def draw_molecule_grid(compounds, names=None, common_core=None, draw_args={}):
         AllChem.Compute2DCoords(common_core)
     for m in compounds:
         if common_core is not None:
-            AllChem.GenerateDepictionMatching2DStructure(m, common_core, acceptFailure=True)
+            AllChem.GenerateDepictionMatching2DStructure(
+                m, common_core, acceptFailure=True
+            )
         else:
             AllChem.Compute2DCoords(m)
     if names is not None:

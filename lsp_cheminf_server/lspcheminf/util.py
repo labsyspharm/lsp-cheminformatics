@@ -13,7 +13,7 @@ mol_identifier_mapping = {
     "smiles": Chem.MolToSmiles,
     "inchi": inchi.MolToInchi,
     "inchi_key": inchi.MolToInchiKey,
-    "smarts": Chem.MolToSmarts
+    "smarts": Chem.MolToSmarts,
 }
 
 
@@ -21,13 +21,17 @@ def convert_compound_request(
     compounds: Mapping
 ) -> Tuple[Mapping[Any, Chem.Mol], List[Tuple[Any, str]]]:
     names = compounds.get("names", list(range(len(compounds["compounds"]))))
+    mapper = identifier_mol_mapping[compounds["identifier"]]
     skipped = []
     converted = {}
     for n, m in zip(names, compounds["compounds"]):
         try:
-            mol = identifier_mol_mapping[compounds["identifier"]](m)
+            mol = mapper(m)
         except Exception:
             skipped.append((n, m))
             continue
-        converted[n] = mol
+        if mol is not None:
+            converted[n] = mol
+        else:
+            skipped.append((n, m))
     return converted, skipped
