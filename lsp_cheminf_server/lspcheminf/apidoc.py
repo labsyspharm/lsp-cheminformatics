@@ -17,7 +17,7 @@ spec = APISpec(
 for i in dir(schemas):
     c = getattr(schemas, i)
     try:
-        if isinstance(c, marshmallow.Schema):
+        if issubclass(c, marshmallow.Schema):
             spec.definition(i, c)
     except Exception:
         pass

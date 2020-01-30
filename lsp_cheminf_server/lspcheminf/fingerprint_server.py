@@ -118,8 +118,10 @@ def similarity_matches_route():
     """Find chemical similarity matches between compounds up to a certain threshold of similarity.
     ---
     post:
-      summary: Calculate chemical similarity
-      description: Find chemical similarity matches between compounds up to a certain threshold of similarity.
+      summary: Find similar chemicals
+      description: Find chemically similar compounds up to a certain threshold of similarity.
+        This is much faster than /fingerprints/similarity because it uses the chemfp package
+        and only returns matches that pass the threshold.
       requestBody:
         required: true
         content:
