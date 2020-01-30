@@ -94,6 +94,20 @@ class SimilarityResultSchema(Schema):
     score = fields.List(fields.Float, required=True)
 
 
+class SimilarityThresholdSchema(SimilaritySchema):
+    target = fields.Nested(
+        CompoundsSchema,
+        description="Target compounds to be compared with the query compounds. If omitted "
+        "query compounds are matched against each other",
+        required=False,
+    )
+    threshold = fields.Float(
+        validate=validate.Range(0, 1, error="Threshold must between 0.0 and 1.0"),
+        missing=0.7,
+        description="Minimum chemical similarity for matches",
+    )
+
+
 class SubstructureSchema(Schema):
     query = fields.Nested(
         CompoundsSchema,

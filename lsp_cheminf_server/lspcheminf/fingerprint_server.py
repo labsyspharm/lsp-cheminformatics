@@ -11,10 +11,16 @@ from rdkit.Chem import inchi
 
 from lspcheminf import app
 from lspcheminf.util import convert_compound_request
-from lspcheminf.fingerprint import calculate_similarity, find_substructure_matches
+from lspcheminf.fingerprint import (
+    calculate_similarity,
+    find_substructure_matches,
+    find_similarity_matches,
+    make_fingerprint_arena,
+)
 from lspcheminf.schemas import (
     SimilaritySchema,
     SimilarityResultSchema,
+    SimilarityThresholdSchema,
     SubstructureSchema,
     SubstructureResultSchema,
 )
@@ -52,7 +58,7 @@ def similarity_route():
             q,
             target_mols,
             fingerprint_type=data["fingerprint_type"],
-            # **data.get(data["fingerprint_args"], {}),
+            fingerprint_args=data["fingerprint_args"],
         )
         for qn, q in query_mols.items()
     }
@@ -104,4 +110,51 @@ def substructure_route():
         out["target"].extend(v.keys())
         out["match"].extend(v.values())
     SubstructureResultSchema().validate(out)
+    return out
+
+
+@app.route("/fingerprints/similarity_threshold", methods=["GET", "POST"])
+def similarity_matches_route():
+    """Find chemical similarity matches between compounds up to a certain threshold of similarity.
+    ---
+    post:
+      summary: Calculate chemical similarity
+      description: Find chemical similarity matches between compounds up to a certain threshold of similarity.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: SimilarityThresholdSchema
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: SimilarityResultSchema
+    """
+    data = SimilarityThresholdSchema().load(request.json)
+    query = data["query"]
+    target = data["target"]
+    query_mols, query_skipped = convert_compound_request(query)
+    query_arena = make_fingerprint_arena(
+        query_mols,
+        fingerprint_type=data["fingerprint_type"],
+        fingerprint_args=data["fingerprint_args"],
+    )
+    target_arena = None
+    if target is not None:
+        target_mols, target_skipped = convert_compound_request(target)
+        target_arena = make_fingerprint_arena(
+            target_mols,
+            fingerprint_type=data["fingerprint_type"],
+            fingerprint_args=data["fingerprint_args"],
+        )
+    matches = find_similarity_matches(
+        query_arena, target_arena, threshold=data["threshold"]
+    )
+    out = {"query": [], "target": [], "score": []}
+    for k, v in matches.items():
+        out["query"].extend([k] * len(v))
+        out["target"].extend(v.keys())
+        out["score"].extend(v.values())
+    SimilarityResultSchema().validate(out)
     return out
