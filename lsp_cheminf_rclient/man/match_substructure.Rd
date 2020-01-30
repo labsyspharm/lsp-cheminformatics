@@ -4,9 +4,12 @@
 \alias{match_substructure}
 \title{Find substructure matches.}
 \usage{
-match_substructure(queries, target_inchis = NULL,
+match_substructure(
+  queries,
+  target_inchis = NULL,
   query_identifier = c("inchi", "smiles", "smarts"),
-  substructure_args = NULL)
+  substructure_args = NULL
+)
 }
 \arguments{
 \item{queries}{A character vector of query compounds or fragments.  Can optionally be named.

@@ -114,9 +114,12 @@
     <p>Find targets whose substructure matches with a query.</p>
     </div>
 
-    <pre class="usage"><span class='fu'>match_substructure</span>(<span class='no'>queries</span>, <span class='kw'>target_inchis</span> <span class='kw'>=</span> <span class='kw'>NULL</span>,
+    <pre class="usage"><span class='fu'>match_substructure</span>(
+  <span class='no'>queries</span>,
+  <span class='kw'>target_inchis</span> <span class='kw'>=</span> <span class='kw'>NULL</span>,
   <span class='kw'>query_identifier</span> <span class='kw'>=</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='st'>"inchi"</span>, <span class='st'>"smiles"</span>, <span class='st'>"smarts"</span>),
-  <span class='kw'>substructure_args</span> <span class='kw'>=</span> <span class='kw'>NULL</span>)</pre>
+  <span class='kw'>substructure_args</span> <span class='kw'>=</span> <span class='kw'>NULL</span>
+)</pre>
 
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
     <table class="ref-arguments">
@@ -157,10 +160,10 @@ target combination is not included.</p>
     <span class='st'>"aspirin"</span> <span class='kw'>=</span> <span class='st'>"InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)"</span>
   ),
   <span class='kw'>query_identifier</span> <span class='kw'>=</span> <span class='st'>"smiles"</span>
-)</div><div class='output co'>#&gt; # A tibble: 1 x 3
+)</div><div class='output co'>#&gt; <span style='color: #555555;'># A tibble: 1 x 3</span><span>
 #&gt;   match      query           target    
-#&gt;   &lt;list&gt;     &lt;chr&gt;           &lt;chr&gt;     
-#&gt; 1 &lt;list [6]&gt; secondary_amine tofacitnib</div></pre>
+#&gt;   </span><span style='color: #555555;font-style: italic;'>&lt;list&gt;</span><span>     </span><span style='color: #555555;font-style: italic;'>&lt;chr&gt;</span><span>           </span><span style='color: #555555;font-style: italic;'>&lt;chr&gt;</span><span>     
+#&gt; </span><span style='color: #555555;'>1</span><span> </span><span style='color: #555555;'>&lt;list [6]&gt;</span><span> secondary_amine tofacitnib</div></span></pre>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="sidebar">
     <h2>Contents</h2>

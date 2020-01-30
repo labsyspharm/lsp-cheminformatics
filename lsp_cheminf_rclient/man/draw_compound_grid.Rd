@@ -4,9 +4,13 @@
 \alias{draw_compound_grid}
 \title{Draw grid of compound structures.}
 \usage{
-draw_compound_grid(inchis, file, common_core = NULL,
+draw_compound_grid(
+  inchis,
+  file,
+  common_core = NULL,
   common_core_identifier = c("smiles", "inchi", "smarts"),
-  draw_args = NULL)
+  draw_args = NULL
+)
 }
 \arguments{
 \item{inchis}{A character vector of compound inchis. Can optionally be named.}

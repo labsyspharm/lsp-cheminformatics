@@ -4,9 +4,11 @@
 \alias{convert_compound_identifier}
 \title{Convert compound identifiers}
 \usage{
-convert_compound_identifier(query, identifier = c("inchi", "smiles",
-  "smarts"), target_identifier = c("smiles", "inchi", "smarts",
-  "inchi_key"))
+convert_compound_identifier(
+  query,
+  identifier = c("inchi", "smiles", "smarts"),
+  target_identifier = c("smiles", "inchi", "smarts", "inchi_key")
+)
 }
 \arguments{
 \item{query}{A character vector of compounds. Can optionally be named.}
