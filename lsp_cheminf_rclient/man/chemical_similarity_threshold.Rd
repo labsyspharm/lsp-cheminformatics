@@ -9,7 +9,8 @@ chemical_similarity_threshold(
   target_inchis = NULL,
   fingerprint_type = c("morgan", "topological"),
   fingerprint_args = NULL,
-  threshold = 0.7
+  threshold = 0.7,
+  url = "http://127.0.0.1:8000"
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ the similarities of all pairwise combinations between query compounds are calcul
 function.}
 
 \item{threshold}{A double between 0 and 1 representing the minimum reported similarity.}
+
+\item{url}{URL to the lspcheminf python server}
 }
 \value{
 A tibble with three columns, containing names of query and target compounds

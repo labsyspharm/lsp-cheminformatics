@@ -6,6 +6,7 @@
 #'   used to align them for plotting.
 #' @param common_core_identifier Chemical identifier used for the queries.
 #' @param draw_args Optional list of additional arguments to the RDKit drawing function.
+#' @template url_template
 #' @return Invisibly returns character with svg file content.
 #' @examples
 #' draw_compound_grid(
@@ -33,7 +34,8 @@ draw_compound_grid <- function(
   file,
   common_core = NULL,
   common_core_identifier = c("smiles", "inchi", "smarts"),
-  draw_args = NULL
+  draw_args = NULL,
+  url = "http://127.0.0.1:8000"
 ) {
   cmpds <- make_compound_list(inchis)
   common_core_cmpd <- if (!is.null(common_core)) {
@@ -52,7 +54,7 @@ draw_compound_grid <- function(
   )
   # browser()
   svg_response <- httr::POST(
-    "http://127.0.0.1:8000/draw/grid",
+    httr::modify_url(url, path = "draw/grid"),
     body = request_body,
     encode = "json",
     httr::accept_json()

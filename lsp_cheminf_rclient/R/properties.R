@@ -3,6 +3,7 @@
 #' @param query A character vector of compounds. Can optionally be named.
 #' @param identifier The chemical identifier used for the query.
 #' @param target_identifier The chemical identifer targeted for conversion.
+#' @template url_template
 #' @return A tibble with three columns, containing query compound names, query
 #'   compound identifier and target identifier.
 #' @examples
@@ -18,7 +19,8 @@
 convert_compound_identifier <- function(
   query,
   identifier = c("inchi", "smiles", "smarts"),
-  target_identifier = c("smiles", "inchi", "smarts", "inchi_key")
+  target_identifier = c("smiles", "inchi", "smarts", "inchi_key"),
+  url = "http://127.0.0.1:8000"
 ) {
   identifier <- match.arg(identifier)
   target_identifier <- match.arg(target_identifier)
@@ -29,7 +31,7 @@ convert_compound_identifier <- function(
   )
   # browser()
   convert_response <- httr::POST(
-    "http://127.0.0.1:8000/properties/convert",
+    httr::modify_url(url, path = "properties/convert"),
     body = request_body,
     encode = "json",
     httr::accept_json()

@@ -8,7 +8,8 @@ match_substructure(
   queries,
   target_inchis = NULL,
   query_identifier = c("inchi", "smiles", "smarts"),
-  substructure_args = NULL
+  substructure_args = NULL,
+  url = "http://127.0.0.1:8000"
 )
 }
 \arguments{
@@ -23,6 +24,8 @@ the all pairwise combinations between query compounds are scanned for matches.}
 
 \item{substructure_args}{Optional additional arguments passed to RDKit substructure matching function.
 See http://www.rdkit.org/docs/source/rdkit.Chem.rdchem.html#rdkit.Chem.rdchem.Mol.GetSubstructMatches}
+
+\item{url}{URL to the lspcheminf python server}
 }
 \value{
 A tibble with three columns, containing names of query and target compounds

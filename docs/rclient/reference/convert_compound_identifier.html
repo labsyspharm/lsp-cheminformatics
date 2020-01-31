@@ -69,7 +69,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">lspcheminf</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">0.3</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">0.3.1</span>
       </span>
     </div>
 
@@ -117,7 +117,8 @@
     <pre class="usage"><span class='fu'>convert_compound_identifier</span>(
   <span class='no'>query</span>,
   <span class='kw'>identifier</span> <span class='kw'>=</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='st'>"inchi"</span>, <span class='st'>"smiles"</span>, <span class='st'>"smarts"</span>),
-  <span class='kw'>target_identifier</span> <span class='kw'>=</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='st'>"smiles"</span>, <span class='st'>"inchi"</span>, <span class='st'>"smarts"</span>, <span class='st'>"inchi_key"</span>)
+  <span class='kw'>target_identifier</span> <span class='kw'>=</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='st'>"smiles"</span>, <span class='st'>"inchi"</span>, <span class='st'>"smarts"</span>, <span class='st'>"inchi_key"</span>),
+  <span class='kw'>url</span> <span class='kw'>=</span> <span class='st'>"http://127.0.0.1:8000"</span>
 )</pre>
 
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
@@ -134,6 +135,10 @@
     <tr>
       <th>target_identifier</th>
       <td><p>The chemical identifer targeted for conversion.</p></td>
+    </tr>
+    <tr>
+      <th>url</th>
+      <td><p>URL to the lspcheminf python server</p></td>
     </tr>
     </table>
 

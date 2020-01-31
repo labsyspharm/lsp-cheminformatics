@@ -1,14 +1,7 @@
 #' Calculate chemical similarity between compounds.
 #'
-#' @param query_inchis A character vector of compound inchis. Can optionally be named.
-#'   All similarities between the query and the target compounds are calculated.
-#' @param target_inchis An optional character vector of compound inchis. If not given,
-#'   the similarities of all pairwise combinations between query compounds are calculated.
-#' @param fingerprint_type Calculate morgan or topological fingerprints.
-#' @param fingerprint_args Optional list of additional arguments to the RDKit fingerprinting
-#'   function.
-#' @return A tibble with three columns, containing names of query and target compounds
-#'   and their similarity.
+#' @template similarity_template
+#' @template url_template
 #' @examples
 #' chemical_similarity(
 #'   c("resveratrol" = "InChI=1S/C14H12O3/c15-12-5-3-10(4-6-12)1-2-11-7-13(16)9-14(17)8-11/h1-9,15-17H/b2-1+"),
@@ -22,7 +15,8 @@ chemical_similarity <- function(
   query_inchis,
   target_inchis = NULL,
   fingerprint_type = c("morgan", "topological"),
-  fingerprint_args = NULL
+  fingerprint_args = NULL,
+  url = "http://127.0.0.1:8000"
 ) {
   query_cmpds <- make_compound_list(query_inchis)
   target_cmpds <- if (!is.null(target_inchis))
@@ -39,7 +33,7 @@ chemical_similarity <- function(
     request_body[["fingerprint_args"]] <- fingerprint_args
   # browser()
   fingerprint_response <- httr::POST(
-    "http://127.0.0.1:8000/fingerprints/similarity",
+    httr::modify_url(url, path = "fingerprints/similarity"),
     body = request_body,
     encode = "json",
     httr::accept_json()
@@ -57,16 +51,9 @@ chemical_similarity <- function(
 #'
 #' Requires chemfp installed on the python server.
 #'
-#' @param query_inchis A character vector of compound inchis. Can optionally be named.
-#'   All similarities between the query and the target compounds are calculated.
-#' @param target_inchis An optional character vector of compound inchis. If not given,
-#'   the similarities of all pairwise combinations between query compounds are calculated.
+#' @template similarity_template
 #' @param threshold A double between 0 and 1 representing the minimum reported similarity.
-#' @param fingerprint_type Calculate morgan or topological fingerprints.
-#' @param fingerprint_args Optional list of additional arguments to the RDKit fingerprinting
-#'   function.
-#' @return A tibble with three columns, containing names of query and target compounds
-#'   and their similarity.
+#' @template url_template
 #' @examples
 #' chemical_similarity_threshold(
 #'   c("resveratrol" = "InChI=1S/C14H12O3/c15-12-5-3-10(4-6-12)1-2-11-7-13(16)9-14(17)8-11/h1-9,15-17H/b2-1+"),
@@ -82,7 +69,8 @@ chemical_similarity_threshold <- function(
   target_inchis = NULL,
   fingerprint_type = c("morgan", "topological"),
   fingerprint_args = NULL,
-  threshold = 0.7
+  threshold = 0.7,
+  url = "http://127.0.0.1:8000"
 ) {
   query_cmpds <- make_compound_list(query_inchis)
   target_cmpds <- if (!is.null(target_inchis))
@@ -100,7 +88,7 @@ chemical_similarity_threshold <- function(
     request_body[["fingerprint_args"]] <- fingerprint_args
   # browser()
   fingerprint_response <- httr::POST(
-    "http://127.0.0.1:8000/fingerprints/similarity_threshold",
+    httr::modify_url(url, path = "fingerprints/similarity_threshold"),
     body = request_body,
     encode = "json",
     httr::accept_json()
@@ -126,6 +114,7 @@ chemical_similarity_threshold <- function(
 #'   the all pairwise combinations between query compounds are scanned for matches.
 #' @param substructure_args Optional additional arguments passed to RDKit substructure matching function.
 #'   See http://www.rdkit.org/docs/source/rdkit.Chem.rdchem.html#rdkit.Chem.rdchem.Mol.GetSubstructMatches
+#' @template url_template
 #' @return A tibble with three columns, containing names of query and target compounds
 #'   and the atom indices of substructre matches. If no match is found the query
 #'   target combination is not included.
@@ -143,7 +132,8 @@ match_substructure <- function(
   queries,
   target_inchis = NULL,
   query_identifier = c("inchi", "smiles", "smarts"),
-  substructure_args = NULL
+  substructure_args = NULL,
+  url = "http://127.0.0.1:8000"
 ) {
   query_identifier <- match.arg(query_identifier)
   query_cmpds <- make_compound_list(queries, identifier = query_identifier)
@@ -159,7 +149,7 @@ match_substructure <- function(
     request_body[["substructure_args"]] <- substructure_args
   # browser()
   substructure_response <- httr::POST(
-    "http://127.0.0.1:8000/fingerprints/substructure",
+    httr::modify_url(url, path = "fingerprints/substructure"),
     body = request_body,
     encode = "json",
     httr::accept_json()

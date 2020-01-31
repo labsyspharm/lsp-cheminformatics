@@ -9,7 +9,8 @@ draw_compound_grid(
   file,
   common_core = NULL,
   common_core_identifier = c("smiles", "inchi", "smarts"),
-  draw_args = NULL
+  draw_args = NULL,
+  url = "http://127.0.0.1:8000"
 )
 }
 \arguments{
@@ -23,6 +24,8 @@ used to align them for plotting.}
 \item{common_core_identifier}{Chemical identifier used for the queries.}
 
 \item{draw_args}{Optional list of additional arguments to the RDKit drawing function.}
+
+\item{url}{URL to the lspcheminf python server}
 }
 \value{
 Invisibly returns character with svg file content.

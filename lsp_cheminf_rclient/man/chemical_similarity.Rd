@@ -8,7 +8,8 @@ chemical_similarity(
   query_inchis,
   target_inchis = NULL,
   fingerprint_type = c("morgan", "topological"),
-  fingerprint_args = NULL
+  fingerprint_args = NULL,
+  url = "http://127.0.0.1:8000"
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ the similarities of all pairwise combinations between query compounds are calcul
 
 \item{fingerprint_args}{Optional list of additional arguments to the RDKit fingerprinting
 function.}
+
+\item{url}{URL to the lspcheminf python server}
 }
 \value{
 A tibble with three columns, containing names of query and target compounds

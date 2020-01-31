@@ -7,7 +7,8 @@
 convert_compound_identifier(
   query,
   identifier = c("inchi", "smiles", "smarts"),
-  target_identifier = c("smiles", "inchi", "smarts", "inchi_key")
+  target_identifier = c("smiles", "inchi", "smarts", "inchi_key"),
+  url = "http://127.0.0.1:8000"
 )
 }
 \arguments{
@@ -16,6 +17,8 @@ convert_compound_identifier(
 \item{identifier}{The chemical identifier used for the query.}
 
 \item{target_identifier}{The chemical identifer targeted for conversion.}
+
+\item{url}{URL to the lspcheminf python server}
 }
 \value{
 A tibble with three columns, containing query compound names, query

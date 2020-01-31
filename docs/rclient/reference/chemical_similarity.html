@@ -69,7 +69,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">lspcheminf</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">0.3</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">0.3.1</span>
       </span>
     </div>
 
@@ -118,7 +118,8 @@
   <span class='no'>query_inchis</span>,
   <span class='kw'>target_inchis</span> <span class='kw'>=</span> <span class='kw'>NULL</span>,
   <span class='kw'>fingerprint_type</span> <span class='kw'>=</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='st'>"morgan"</span>, <span class='st'>"topological"</span>),
-  <span class='kw'>fingerprint_args</span> <span class='kw'>=</span> <span class='kw'>NULL</span>
+  <span class='kw'>fingerprint_args</span> <span class='kw'>=</span> <span class='kw'>NULL</span>,
+  <span class='kw'>url</span> <span class='kw'>=</span> <span class='st'>"http://127.0.0.1:8000"</span>
 )</pre>
 
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
@@ -142,6 +143,10 @@ the similarities of all pairwise combinations between query compounds are calcul
       <th>fingerprint_args</th>
       <td><p>Optional list of additional arguments to the RDKit fingerprinting
 function.</p></td>
+    </tr>
+    <tr>
+      <th>url</th>
+      <td><p>URL to the lspcheminf python server</p></td>
     </tr>
     </table>
 
