@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="lspcheminf",
-    version="0.2.3",
+    version="0.3",
     packages=["lspcheminf"],
     include_package_data=True,
     install_requires=[
