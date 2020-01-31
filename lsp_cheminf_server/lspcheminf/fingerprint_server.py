@@ -142,6 +142,7 @@ def similarity_matches_route():
         fingerprint_type=data["fingerprint_type"],
         fingerprint_args=data["fingerprint_args"],
     )
+    del query_mols
     target_arena = None
     if target is not None:
         target_mols, target_skipped = convert_compound_request(target)
@@ -150,6 +151,7 @@ def similarity_matches_route():
             fingerprint_type=data["fingerprint_type"],
             fingerprint_args=data["fingerprint_args"],
         )
+        del target_mols
     matches = find_similarity_matches(
         query_arena, target_arena, threshold=data["threshold"]
     )
