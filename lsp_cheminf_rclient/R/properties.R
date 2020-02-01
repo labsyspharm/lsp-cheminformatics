@@ -36,13 +36,9 @@ convert_compound_identifier <- function(
     encode = "json",
     httr::accept_json()
   )
-  httr::content(
+  json_to_tibble(
     convert_response,
-    as = "parsed",
-    type = "application/json",
-    simplifyVector = TRUE,
+    extract = "compounds",
     simplifyMatrix = FALSE
-  ) %>%
-    magrittr::extract2("compounds") %>%
-    tibble::as_tibble()
+  )
 }

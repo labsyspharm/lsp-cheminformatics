@@ -15,3 +15,15 @@ make_compound_list <- function(
   }
   cmpds
 }
+
+json_to_tibble <- function(json, extract = NULL, ...) {
+  httr::content(
+    json,
+    as = "parsed",
+    type = "application/json",
+    simplifyVector = TRUE,
+    ...
+  ) %>%
+    {if (!is.null(extract)) .[[extract]] else .} %>%
+    tibble::as_tibble()
+}

@@ -38,13 +38,7 @@ chemical_similarity <- function(
     encode = "json",
     httr::accept_json()
   )
-  httr::content(
-    fingerprint_response,
-    as = "parsed",
-    type = "application/json",
-    simplifyVector = TRUE
-  ) %>%
-    tibble::as_tibble()
+  json_to_tibble(fingerprint_response)
 }
 
 #' Find chemical similarity matches up to a threshold.
@@ -86,20 +80,13 @@ chemical_similarity_threshold <- function(
   )
   if (!is.null(fingerprint_args))
     request_body[["fingerprint_args"]] <- fingerprint_args
-  # browser()
   fingerprint_response <- httr::POST(
     httr::modify_url(url, path = "fingerprints/similarity_threshold"),
     body = request_body,
     encode = "json",
     httr::accept_json()
   )
-  httr::content(
-    fingerprint_response,
-    as = "parsed",
-    type = "application/json",
-    simplifyVector = TRUE
-  ) %>%
-    tibble::as_tibble()
+  json_to_tibble(fingerprint_response)
 }
 
 #' Find substructure matches.
@@ -154,12 +141,5 @@ match_substructure <- function(
     encode = "json",
     httr::accept_json()
   )
-  httr::content(
-    substructure_response,
-    as = "parsed",
-    type = "application/json",
-    simplifyVector = TRUE,
-    simplifyMatrix = FALSE
-  ) %>%
-    tibble::as_tibble()
+  json_to_tibble(substructure_response, simplifyMatrix = FALSE)
 }
