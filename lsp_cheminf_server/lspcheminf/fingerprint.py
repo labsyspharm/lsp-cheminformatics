@@ -24,6 +24,7 @@ if chemfp_available:
 
     def chemfp_fp_func(fun, **kwargs):
         def fp_func(arg_dict):
+            arg_dict = arg_dict.copy()
             for k, v in kwargs.items():
                 arg_dict.setdefault(k, v)
             return fun(arg_dict)
