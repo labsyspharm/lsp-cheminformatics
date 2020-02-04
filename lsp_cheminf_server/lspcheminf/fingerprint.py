@@ -88,7 +88,7 @@ def make_fingerprint_arena(
     fp_generator = ((str(n), fp_maker(m)) for n, m in mols.items())
     fp = fp_maker(next(iter(mols.values())))
     arena = chemfp.load_fingerprints(
-        fp_generator, metadata=chemfp.Metadata(num_bits=len(fp)*8)
+        fp_generator, metadata=chemfp.Metadata(num_bits=len(fp) * 8)
     )
     return arena
 

@@ -40,4 +40,6 @@ def test_canonicalize(client):
     assert res.status_code == 200
     res_json = res.get_json()
     assert len(res_json["canonical"]) == 2
+    assert res_json["canonical"]["identifier"] == "inchi"
+    assert len(res_json["canonical"]["compounds"]) == 2
     assert len(res_json["skipped"]) == 0

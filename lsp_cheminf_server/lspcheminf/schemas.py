@@ -55,9 +55,7 @@ class CanonicalizeSchema(Schema):
 
 
 class CanonicalizeResultSchema(Schema):
-    canonical = fields.Mapping(
-        keys=fields.String, values=fields.Nested(CompoundsSchema), required=True
-    )
+    canonical = fields.Nested(CompoundsSchema, required=True)
     skipped = skipped_field
 
 
