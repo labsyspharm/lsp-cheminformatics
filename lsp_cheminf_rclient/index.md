@@ -72,5 +72,4 @@ list column.
 
 ## Additional functionality
 
-At the moment there is no R client code yet for the additional functionalities of the JSON API, like the molecule drawing,
-ID conversion etc.
+All additional functionality is documented in the `Reference`

@@ -6,7 +6,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Find chemical similarity matches up to a threshold. — chemical_similarity_threshold • lspcheminf</title>
+<title>Calculate molecular mass of compounds — molecular_mass • lspcheminf</title>
 
 
 <!-- jquery -->
@@ -35,8 +35,8 @@
 
 
 
-<meta property="og:title" content="Find chemical similarity matches up to a threshold. — chemical_similarity_threshold" />
-<meta property="og:description" content="Requires chemfp installed on the python server." />
+<meta property="og:title" content="Calculate molecular mass of compounds — molecular_mass" />
+<meta property="og:description" content="Calculate molecular mass of compounds" />
 <meta name="twitter:card" content="summary" />
 
 
@@ -105,49 +105,23 @@
 <div class="row">
   <div class="col-md-9 contents">
     <div class="page-header">
-    <h1>Find chemical similarity matches up to a threshold.</h1>
-    <small class="dont-index">Source: <a href='https://github.com/labsyspharm/lsp-cheminformatics/blob/master/R/similarity.R'><code>R/similarity.R</code></a></small>
-    <div class="hidden name"><code>chemical_similarity_threshold.Rd</code></div>
+    <h1>Calculate molecular mass of compounds</h1>
+    <small class="dont-index">Source: <a href='https://github.com/labsyspharm/lsp-cheminformatics/blob/master/R/properties.R'><code>R/properties.R</code></a></small>
+    <div class="hidden name"><code>molecular_mass.Rd</code></div>
     </div>
 
     <div class="ref-description">
-    <p>Requires chemfp installed on the python server.</p>
+    <p>Calculate molecular mass of compounds</p>
     </div>
 
-    <pre class="usage"><span class='fu'>chemical_similarity_threshold</span>(
-  <span class='no'>query_inchis</span>,
-  <span class='kw'>target_inchis</span> <span class='kw'>=</span> <span class='kw'>NULL</span>,
-  <span class='kw'>fingerprint_type</span> <span class='kw'>=</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='st'>"morgan"</span>, <span class='st'>"topological"</span>),
-  <span class='kw'>fingerprint_args</span> <span class='kw'>=</span> <span class='kw'>NULL</span>,
-  <span class='kw'>threshold</span> <span class='kw'>=</span> <span class='fl'>0.7</span>,
-  <span class='kw'>url</span> <span class='kw'>=</span> <span class='st'>"http://127.0.0.1:8000"</span>
-)</pre>
+    <pre class="usage"><span class='fu'>molecular_mass</span>(<span class='no'>compounds</span>, <span class='kw'>url</span> <span class='kw'>=</span> <span class='st'>"http://127.0.0.1:8000"</span>)</pre>
 
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
     <table class="ref-arguments">
     <colgroup><col class="name" /><col class="desc" /></colgroup>
     <tr>
-      <th>query_inchis</th>
-      <td><p>A character vector of compound inchis. Can optionally be named.
-All similarities between the query and the target compounds are calculated.</p></td>
-    </tr>
-    <tr>
-      <th>target_inchis</th>
-      <td><p>An optional character vector of compound inchis. If not given,
-the similarities of all pairwise combinations between query compounds are calculated.</p></td>
-    </tr>
-    <tr>
-      <th>fingerprint_type</th>
-      <td><p>Calculate morgan or topological fingerprints.</p></td>
-    </tr>
-    <tr>
-      <th>fingerprint_args</th>
-      <td><p>Optional list of additional arguments to the RDKit fingerprinting
-function.</p></td>
-    </tr>
-    <tr>
-      <th>threshold</th>
-      <td><p>A double between 0 and 1 representing the minimum reported similarity.</p></td>
+      <th>compounds</th>
+      <td><p>A character vector of compounds as InChI strings. Can optionally be named.</p></td>
     </tr>
     <tr>
       <th>url</th>
@@ -157,21 +131,19 @@ function.</p></td>
 
     <h2 class="hasAnchor" id="value"><a class="anchor" href="#value"></a>Value</h2>
 
-    <p>A tibble with three columns, containing names of query and target compounds
-and their similarity.</p>
+    <p>A tibble with two columns, containing compound identifier and molecular weight.</p>
 
     <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
-    <pre class="examples"><div class='input'><span class='fu'>chemical_similarity_threshold</span>(
-  <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='st'>"resveratrol"</span> <span class='kw'>=</span> <span class='st'>"InChI=1S/C14H12O3/c15-12-5-3-10(4-6-12)1-2-11-7-13(16)9-14(17)8-11/h1-9,15-17H/b2-1+"</span>),
+    <pre class="examples"><div class='input'><span class='fu'>molecular_mass</span>(
   <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(
     <span class='st'>"tofacitnib"</span> <span class='kw'>=</span> <span class='st'>"InChI=1S/C16H20N6O/c1-11-5-8-22(14(23)3-6-17)9-13(11)21(2)16-12-4-7-18-15(12)19-10-20-16/h4,7,10-11,13H,3,5,8-9H2,1-2H3,(H,18,19,20)/t11-,13+/m1/s1"</span>,
     <span class='st'>"aspirin"</span> <span class='kw'>=</span> <span class='st'>"InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)"</span>
-  ),
-  <span class='kw'>threshold</span> <span class='kw'>=</span> <span class='fl'>0.1</span>
-)</div><div class='output co'>#&gt; <span style='color: #555555;'># A tibble: 1 x 3</span><span>
-#&gt;   query       score target 
-#&gt;   </span><span style='color: #555555;font-style: italic;'>&lt;chr&gt;</span><span>       </span><span style='color: #555555;font-style: italic;'>&lt;dbl&gt;</span><span> </span><span style='color: #555555;font-style: italic;'>&lt;chr&gt;</span><span>  
-#&gt; </span><span style='color: #555555;'>1</span><span> resveratrol 0.132 aspirin</div></span></pre>
+  )
+)</div><div class='output co'>#&gt; <span style='color: #555555;'># A tibble: 2 x 2</span><span>
+#&gt;   compound    mass
+#&gt;   </span><span style='color: #555555;font-style: italic;'>&lt;chr&gt;</span><span>      </span><span style='color: #555555;font-style: italic;'>&lt;dbl&gt;</span><span>
+#&gt; </span><span style='color: #555555;'>1</span><span> aspirin     180.
+#&gt; </span><span style='color: #555555;'>2</span><span> tofacitnib  312.</div></span></pre>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="sidebar">
     <h2>Contents</h2>
