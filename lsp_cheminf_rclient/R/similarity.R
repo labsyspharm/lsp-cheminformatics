@@ -89,6 +89,51 @@ chemical_similarity_threshold <- function(
   json_to_tibble(fingerprint_response)
 }
 
+#' Find identical compounds
+#'
+#' Establish identity between compounds using both morgan and topological
+#' fingerprints and molecular weight.
+#'
+#' Requires chemfp installed on the python server.
+#'
+#' @param query_inchis A character vector of compound inchis. Can optionally be named.
+#'   All similarities between the query and the target compounds are calculated.
+#' @param target_inchis An optional character vector of compound inchis. If not given,
+#'   the similarities of all pairwise combinations between query compounds are calculated.
+#' @template url_template
+#' @examples
+#' compound_identity(
+#'   c("resveratrol" = "InChI=1S/C14H12O3/c15-12-5-3-10(4-6-12)1-2-11-7-13(16)9-14(17)8-11/h1-9,15-17H/b2-1+"),
+#'   c(
+#'     "tofacitnib" = "InChI=1S/C16H20N6O/c1-11-5-8-22(14(23)3-6-17)9-13(11)21(2)16-12-4-7-18-15(12)19-10-20-16/h4,7,10-11,13H,3,5,8-9H2,1-2H3,(H,18,19,20)/t11-,13+/m1/s1",
+#'     "aspirin" = "InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)",
+#'     "resveratrol2" = "InChI=1S/C14H12O3/c15-12-5-3-10(4-6-12)1-2-11-7-13(16)9-14(17)8-11/h1-9,15-17H/b2-1+"
+#'   )
+#' )
+#' @export
+compound_identity <- function(
+  query_inchis,
+  target_inchis = NULL,
+  url = "http://127.0.0.1:8000"
+) {
+  query_cmpds <- make_compound_list(query_inchis)
+  target_cmpds <- if (!is.null(target_inchis))
+    make_compound_list(target_inchis)
+  else
+    NULL
+  request_body <- list(
+    query = query_cmpds,
+    target = target_cmpds
+  )
+  identity_response <- httr::POST(
+    httr::modify_url(url, path = "fingerprints/compound_identity"),
+    body = request_body,
+    encode = "json",
+    httr::accept_json()
+  )
+  json_to_tibble(identity_response)
+}
+
 #' Find substructure matches.
 #'
 #' Find targets whose substructure matches with a query.

@@ -106,6 +106,25 @@ class SimilarityThresholdSchema(SimilaritySchema):
     )
 
 
+class CompoundIdentitySchema(Schema):
+    query = fields.Nested(
+        CompoundsSchema,
+        description="Query compounds to be compared with the target compounds",
+        required=True,
+    )
+    target = fields.Nested(
+        CompoundsSchema,
+        description="Target compounds to be compared with the query compounds. If omitted "
+        "query compounds are matched against each other",
+        required=False,
+    )
+
+
+class CompoundIdentityResultSchema(Schema):
+    query = fields.List(fields.String, required=True)
+    target = fields.List(fields.String, required=True)
+
+
 class SubstructureSchema(Schema):
     query = fields.Nested(
         CompoundsSchema,

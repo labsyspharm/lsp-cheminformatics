@@ -72,3 +72,23 @@ def test_similarity_threshold(client, fingerprint_type, fingerprint_args):
     assert res.status_code == 200
     res_json = res.get_json()
     assert all(len(x) == 1 for x in res_json.values())
+    assert res_json["query"][0] == "1"
+    assert res_json["target"][0] == "0"
+
+
+def test_compound_identity(client):
+    res = client.post(
+        "/fingerprints/compound_identity",
+        json={
+            "query": {"identifier": "inchi", "compounds": test_compounds["inchi"][:2]},
+            "target": {
+                "identifier": "smiles",
+                "compounds": test_compounds["smiles"][1:4],
+            },
+        },
+    )
+    assert res.status_code == 200
+    res_json = res.get_json()
+    assert all(len(x) == 1 for x in res_json.values())
+    assert res_json["query"][0] == "1"
+    assert res_json["target"][0] == "0"

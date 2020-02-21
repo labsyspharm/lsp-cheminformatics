@@ -16,6 +16,7 @@ from lspcheminf.fingerprint import (
     find_substructure_matches,
     find_similarity_matches,
     make_fingerprint_arena,
+    compound_identity,
 )
 from lspcheminf.schemas import (
     SimilaritySchema,
@@ -23,6 +24,8 @@ from lspcheminf.schemas import (
     SimilarityThresholdSchema,
     SubstructureSchema,
     SubstructureResultSchema,
+    CompoundIdentitySchema,
+    CompoundIdentityResultSchema,
 )
 
 
@@ -161,4 +164,40 @@ def similarity_matches_route():
         out["target"].extend(v.keys())
         out["score"].extend(v.values())
     SimilarityResultSchema().validate(out)
+    return out
+
+
+@app.route("/fingerprints/compound_identity", methods=["GET", "POST"])
+def compound_identity_route():
+    """Establish identity between compounds using both morgan and topological fingerprints and molecular weight.
+    ---
+    post:
+      summary: Find identical compounds
+      description: Compare fingerprints between query and target compounds and
+        find identical compounds using both morgan and topological fingerprints as well as
+        molecular weight.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: CompoundIdentitySchema
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: CompoundIdentityResultSchema
+    """
+    data = CompoundIdentitySchema().load(request.json)
+    query = data["query"]
+    target = data["target"]
+    query_mols, query_skipped = convert_compound_request(query)
+    target_mols = None
+    if target is not None:
+        target_mols, target_skipped = convert_compound_request(target)
+    matches = compound_identity(query_mols, target_mols)
+    out = {"query": [], "target": []}
+    for k, v in matches.items():
+        out["query"].extend([k] * len(v))
+        out["target"].extend(v)
+    CompoundIdentityResultSchema().validate(out)
     return out

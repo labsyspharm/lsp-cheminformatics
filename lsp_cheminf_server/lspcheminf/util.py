@@ -19,8 +19,8 @@ mol_identifier_mapping = {
 
 def convert_compound_request(
     compounds: Mapping
-) -> Tuple[Mapping[Any, Chem.Mol], List[Tuple[Any, str]]]:
-    names = compounds.get("names", list(range(len(compounds["compounds"]))))
+) -> Tuple[Mapping[str, Chem.Mol], List[Tuple[str, str]]]:
+    names = map(str, compounds.get("names", list(range(len(compounds["compounds"])))))
     mapper = identifier_mol_mapping[compounds["identifier"]]
     skipped = []
     converted = {}

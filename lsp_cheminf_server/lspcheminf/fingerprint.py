@@ -1,9 +1,11 @@
 from functools import partial
+from math import isclose
 from typing import Mapping, List, Any, Tuple, Optional
 
 from rdkit.Chem import Mol
 from rdkit import DataStructs
 from rdkit.Chem import AllChem
+from rdkit.Chem.Descriptors import MolWt
 
 try:
     import chemfp
@@ -111,3 +113,33 @@ def find_similarity_matches(
         for q_id, targets in zip(query.ids, match_res.iter_ids_and_scores())
         if len(targets) > 0
     }
+
+
+def compound_identity(
+    query: Mapping[str, Mol], target: Optional[Mapping[str, Mol]]
+) -> Mapping[str, List[str]]:
+    target_set = set((target if target is not None else query).keys())
+    match_sets = {q: target_set.copy() for q in query.keys()}
+    for fp_type in ["morgan", "topological"]:
+        query_arena = make_fingerprint_arena(query, fingerprint_type=fp_type)
+        target_arena = (
+            make_fingerprint_arena(target, fingerprint_type=fp_type)
+            if target is not None
+            else None
+        )
+        matches = find_similarity_matches(query_arena, target_arena, threshold=1)
+        for q in match_sets.keys():
+            match_sets[q] &= set(x for x in matches.get(q, {}).keys())
+    query_weights = {k: MolWt(m) for k, m in query.items()}
+    target_weights = (
+        {k: MolWt(m) for k, m in target.items()}
+        if target is not None
+        else query_weights
+    )
+    for q, ts in match_sets.items():
+        weight_matches = set()
+        for t in ts:
+            if isclose(query_weights[q], target_weights[t], rel_tol=0.001):
+                weight_matches.add(t)
+        match_sets[q] &= weight_matches
+    return {k: list(v) for k, v in match_sets.items()}
