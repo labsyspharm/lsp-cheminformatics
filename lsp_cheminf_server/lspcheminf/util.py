@@ -1,3 +1,4 @@
+import warnings
 from typing import Mapping, List, Tuple, Any, Union
 
 from rdkit import Chem
@@ -39,7 +40,8 @@ def convert_compound_request(
     converted = {}
     for n, m in zip(names, compounds["compounds"]):
         try:
-            mol = mapper(m)
+            with warnings.catch_warnings():
+                mol = mapper(m)
         except Exception:
             skipped.append((n, m))
             continue
