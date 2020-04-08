@@ -31,7 +31,6 @@ chemical_similarity <- function(
   )
   if (!is.null(fingerprint_args))
     request_body[["fingerprint_args"]] <- fingerprint_args
-  # browser()
   fingerprint_response <- httr::POST(
     httr::modify_url(url, path = "fingerprints/similarity"),
     body = request_body,
@@ -179,7 +178,6 @@ match_substructure <- function(
   )
   if (!is.null(substructure_args))
     request_body[["substructure_args"]] <- substructure_args
-  # browser()
   substructure_response <- httr::POST(
     httr::modify_url(url, path = "fingerprints/substructure"),
     body = request_body,
@@ -187,4 +185,46 @@ match_substructure <- function(
     httr::accept_json()
   )
   json_to_tibble(substructure_response, simplifyMatrix = FALSE)
+}
+
+#' Calculate chemical fingerprints
+#'
+#' Fingerprints are returned as hex encoded strings.
+#'
+#' @param query_inchis A character vector of compound inchis. Can optionally be named.
+#'   All fingerprints for the given compounds are calculated.
+#' @param fingerprint_type Calculate morgan or topological fingerprints.
+#' @param fingerprint_args Optional list of additional arguments to the RDKit fingerprinting
+#'   function.
+#' @return A tibble with two columns, containing names of query and fingerprints.
+#' @template url_template
+#' @examples
+#' calculate_fingerprints(
+#'   c(
+#'     "tofacitnib" = "InChI=1S/C16H20N6O/c1-11-5-8-22(14(23)3-6-17)9-13(11)21(2)16-12-4-7-18-15(12)19-10-20-16/h4,7,10-11,13H,3,5,8-9H2,1-2H3,(H,18,19,20)/t11-,13+/m1/s1",
+#'     "aspirin" = "InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)"
+#'   )
+#' )
+#' @export
+calculate_fingerprints <- function(
+  query_inchis,
+  fingerprint_type = c("morgan", "topological"),
+  fingerprint_args = NULL,
+  url = "http://127.0.0.1:8000"
+) {
+  query_cmpds <- make_compound_list(query_inchis)
+  fingerprint_type <- match.arg(fingerprint_type)
+  request_body <- list(
+    query = query_cmpds,
+    fingerprint_type = fingerprint_type
+  )
+  if (!is.null(fingerprint_args))
+    request_body[["fingerprint_args"]] <- fingerprint_args
+  fingerprint_response <- httr::POST(
+    httr::modify_url(url, path = "fingerprints/calculate"),
+    body = request_body,
+    encode = "json",
+    httr::accept_json()
+  )
+  json_to_tibble(fingerprint_response)
 }

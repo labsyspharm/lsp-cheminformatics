@@ -17,6 +17,7 @@ from lspcheminf.fingerprint import (
     find_similarity_matches,
     make_fingerprint_arena,
     compound_identity,
+    calculate_fingerprints,
 )
 from lspcheminf.schemas import (
     SimilaritySchema,
@@ -26,6 +27,8 @@ from lspcheminf.schemas import (
     SubstructureResultSchema,
     CompoundIdentitySchema,
     CompoundIdentityResultSchema,
+    CalculateFingerprintsSchema,
+    CalculateFingerprintsResultSchema,
 )
 
 
@@ -200,4 +203,42 @@ def compound_identity_route():
         out["query"].extend([k] * len(v))
         out["target"].extend(v)
     CompoundIdentityResultSchema().validate(out)
+    return out
+
+
+@app.route("/fingerprints/calculate", methods=["GET", "POST"])
+def calculate_fingerprint_route():
+    """Calculate chemical fingerprints.
+    ---
+    post:
+      summary: Calculate chemical fingerprints
+      description: Calculate chemical fingerprints for the supplied compound identifiers.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: CalculateFingerprintsSchema
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: CalculateFingerprintsResultSchema
+    """
+    data = CalculateFingerprintsSchema().load(request.json)
+    query = data["query"]
+    if len(query["compounds"]) > 100000:
+        raise ValueError(
+            "Must request fewer than 100,000 compounds per request for performance reasons."
+        )
+    query_mols, query_skipped = convert_compound_request(query)
+    fingerprints = calculate_fingerprints(
+        query_mols,
+        fingerprint_type=data["fingerprint_type"],
+        fingerprint_args=data["fingerprint_args"],
+    )
+    out = {
+        "names": list(fingerprints.keys()),
+        "fingerprints": list(fingerprints.values()),
+    }
+    CalculateFingerprintsResultSchema().validate(out)
     return out

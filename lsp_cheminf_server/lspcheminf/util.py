@@ -1,7 +1,17 @@
-from typing import Mapping, List, Tuple, Any
+from typing import Mapping, List, Tuple, Any, Union
 
 from rdkit import Chem
 from rdkit.Chem import inchi
+
+try:
+    import chemfp
+
+    chemfp_available = True
+    import chemfp.search
+    import chemfp.arena
+    import chemfp.rdkit_types
+except ImportError:
+    chemfp_available = False
 
 identifier_mol_mapping = {
     "smiles": Chem.MolFromSmiles,
@@ -16,10 +26,13 @@ mol_identifier_mapping = {
     "smarts": Chem.MolToSmarts,
 }
 
+Molmap = Mapping[str, Chem.Mol]
+MolmapArena = Union[Molmap, chemfp.arena.FingerprintArena]
+
 
 def convert_compound_request(
     compounds: Mapping
-) -> Tuple[Mapping[str, Chem.Mol], List[Tuple[str, str]]]:
+) -> Tuple[Molmap, List[Tuple[str, str]]]:
     names = map(str, compounds.get("names", list(range(len(compounds["compounds"])))))
     mapper = identifier_mol_mapping[compounds["identifier"]]
     skipped = []

@@ -59,15 +59,10 @@ class CanonicalizeResultSchema(Schema):
     skipped = skipped_field
 
 
-class SimilaritySchema(Schema):
+class CalculateFingerprintsSchema(Schema):
     query = fields.Nested(
         CompoundsSchema,
-        description="Query compounds to be compared with the target compounds",
-        required=True,
-    )
-    target = fields.Nested(
-        CompoundsSchema,
-        description="Target compounds to be compared with the query compounds",
+        description="Query compounds to be fingerprinted",
         required=True,
     )
     fingerprint_type = fields.String(
@@ -83,6 +78,24 @@ class SimilaritySchema(Schema):
         "See https://www.rdkit.org/docs/source/rdkit.Chem.rdmolops.html#rdkit.Chem.rdmolops.RDKFingerprint "
         "and https://www.rdkit.org/docs/source/rdkit.Chem.rdMolDescriptors.html#rdkit.Chem.rdMolDescriptors.GetMorganFingerprint",
         example='{"minPath": 2, "useHs": false}',
+    )
+
+
+class CalculateFingerprintsResultSchema(Schema):
+    names = fields.List(fields.String, required=True)
+    fingerprints = fields.List(fields.String, required=True)
+
+
+class SimilaritySchema(CalculateFingerprintsSchema):
+    query = fields.Nested(
+        CompoundsSchema,
+        description="Query compounds to be compared with the target compounds",
+        required=True,
+    )
+    target = fields.Nested(
+        CompoundsSchema,
+        description="Target compounds to be compared with the query compounds",
+        required=True,
     )
 
 

@@ -7,6 +7,8 @@ from rdkit import DataStructs
 from rdkit.Chem import AllChem
 from rdkit.Chem.Descriptors import MolWt
 
+from .util import Molmap, MolmapArena
+
 try:
     import chemfp
 
@@ -14,6 +16,7 @@ try:
     import chemfp.search
     import chemfp.arena
     import chemfp.rdkit_types
+    from chemfp.bitops import hex_encode
 except ImportError:
     chemfp_available = False
 
@@ -53,9 +56,25 @@ def calculate_fingerprint(
     return fingerprint_functions[fingerprint_type](mol, **fingerprint_args)
 
 
+def calculate_fingerprints(
+    mols: Molmap,
+    fingerprint_type: str = "morgan",
+    fingerprint_args: Mapping[str, Any] = {},
+) -> Mapping[str, str]:
+    if not fingerprint_type in fingerprint_functions:
+        raise ValueError(
+            "`fingerprint_type` must be one of ", list(fingerprint_functions.keys())
+        )
+    fp_fun = chemfp_fingerprint_functions[fingerprint_type](fingerprint_args)
+    return {
+        k: hex_encode(fp)
+        for k, fp in zip(mols.keys(), fp_fun.compute_fingerprints(mols.values()))
+    }
+
+
 def calculate_similarity(
     query: Mol,
-    targets: Mapping[str, Mol],
+    targets: Molmap,
     fingerprint_type: str = "morgan",
     fingerprint_args: Mapping[str, Any] = {},
 ) -> Mapping[str, float]:
@@ -69,7 +88,7 @@ def calculate_similarity(
 
 
 def find_substructure_matches(
-    query: Mol, targets: Mapping[str, Mol], substructure_args: Mapping[str, Any] = {}
+    query: Mol, targets: Molmap, substructure_args: Mapping[str, Any] = {}
 ) -> Mapping[str, Tuple[Tuple[int]]]:
     res = {}
     for n, t in targets.items():
@@ -80,7 +99,7 @@ def find_substructure_matches(
 
 
 def make_fingerprint_arena(
-    mols: Mapping[str, Mol],
+    mols: Molmap,
     fingerprint_type: str = "morgan",
     fingerprint_args: Mapping[str, Any] = {},
 ) -> chemfp.arena.FingerprintArena:
@@ -116,7 +135,7 @@ def find_similarity_matches(
 
 
 def compound_identity(
-    query: Mapping[str, Mol], target: Optional[Mapping[str, Mol]]
+    query: Molmap, target: Optional[Mapping[str, Mol]]
 ) -> Mapping[str, List[str]]:
     target_set = set((target if target is not None else query).keys())
     match_sets = {q: target_set.copy() for q in query.keys()}

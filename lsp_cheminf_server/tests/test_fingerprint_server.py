@@ -92,3 +92,21 @@ def test_compound_identity(client):
     assert all(len(x) == 1 for x in res_json.values())
     assert res_json["query"][0] == "1"
     assert res_json["target"][0] == "0"
+
+
+@pytest.mark.parametrize(
+    "fingerprint_type,fingerprint_args",
+    [("morgan", {}), ("morgan", {"radius": 3}), ("topological", {})],
+)
+def test_calculate_fingerprints(client, fingerprint_type, fingerprint_args):
+    res = client.post(
+        "/fingerprints/calculate",
+        json={
+            "query": {"identifier": "inchi", "compounds": test_compounds["inchi"][:2]},
+            "fingerprint_type": fingerprint_type,
+            "fingerprint_args": fingerprint_args,
+        },
+    )
+    assert res.status_code == 200
+    res_json = res.get_json()
+    assert all(len(x) == 2 for x in res_json.values())
