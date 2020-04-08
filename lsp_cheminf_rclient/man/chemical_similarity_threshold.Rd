@@ -9,6 +9,7 @@ chemical_similarity_threshold(
   target_inchis = NULL,
   fingerprint_type = c("morgan", "topological"),
   fingerprint_args = NULL,
+  precalculated = FALSE,
   threshold = 0.7,
   url = "http://127.0.0.1:8000"
 )
@@ -24,6 +25,9 @@ the similarities of all pairwise combinations between query compounds are calcul
 
 \item{fingerprint_args}{Optional list of additional arguments to the RDKit fingerprinting
 function.}
+
+\item{precalculated}{If true, query and target inchis contain pre-calculated
+hex-encoded fingerprint strings instead of inchis}
 
 \item{threshold}{A double between 0 and 1 representing the minimum reported similarity.}
 
@@ -44,5 +48,10 @@ chemical_similarity_threshold(
     "aspirin" = "InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)"
   ),
   threshold = 0.1
+)
+chemical_similarity_threshold(
+    c("a" = "880DF", "b" = "881DF", "c" = "870E0"),
+    threshold = 0.8,
+    precalculated = TRUE
 )
 }

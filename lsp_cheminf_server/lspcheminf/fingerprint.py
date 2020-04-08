@@ -1,6 +1,6 @@
 from functools import partial
 from math import isclose
-from typing import Mapping, List, Any, Tuple, Optional
+from typing import Mapping, List, Any, Tuple, Optional, Union
 
 from rdkit.Chem import Mol
 from rdkit import DataStructs
@@ -99,15 +99,19 @@ def find_substructure_matches(
 
 
 def make_fingerprint_arena(
-    mols: Molmap,
+    mols: Union[Molmap, Mapping[str, str]],
     fingerprint_type: str = "morgan",
     fingerprint_args: Mapping[str, Any] = {},
 ) -> chemfp.arena.FingerprintArena:
     fp_maker = chemfp_fingerprint_functions[fingerprint_type](
         fingerprint_args
     ).make_fingerprinter()
-    fp_generator = ((str(n), fp_maker(m)) for n, m in mols.items())
-    fp = fp_maker(next(iter(mols.values())))
+    if isinstance(next(iter(mols.values())), Mol):
+        fp_generator = ((str(n), fp_maker(m)) for n, m in mols.items())
+        fp = fp_maker(next(iter(mols.values())))
+    else:
+        fp_generator = ((str(n), fp.encode()) for n, fp in mols.items())
+        fp = next(iter(mols.values()))
     arena = chemfp.load_fingerprints(
         fp_generator, metadata=chemfp.Metadata(num_bits=len(fp) * 8)
     )

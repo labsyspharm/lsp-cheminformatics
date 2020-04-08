@@ -1,12 +1,18 @@
 make_compound_list <- function(
   compounds,
   compound_names = NULL,
+  precalculated = FALSE,
   identifier = "inchi"
 ) {
   cmpds <- list(
-    compounds = I(as.character(unname(compounds))),
     identifier = identifier
   )
+  cmpds[["compounds"]] = if (precalculated)
+    I(character(length(compounds)))
+  else
+    I(as.character(unname(compounds)))
+  if (precalculated)
+    cmpds[["fingerprints"]] = I(unname(compounds))
   if (is.null(compound_names) && !is.null(names(compounds))) {
     compound_names <- as.character(names(compounds))
   }

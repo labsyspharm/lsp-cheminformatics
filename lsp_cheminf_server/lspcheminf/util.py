@@ -32,12 +32,14 @@ MolmapArena = Union[Molmap, chemfp.arena.FingerprintArena]
 
 
 def convert_compound_request(
-    compounds: Mapping
-) -> Tuple[Molmap, List[Tuple[str, str]]]:
+    compounds: Mapping, field: str = "compounds"
+) -> Tuple[Union[Molmap, Mapping[str, str]], List[Tuple[str, str]]]:
     names = map(str, compounds.get("names", list(range(len(compounds["compounds"])))))
     mapper = identifier_mol_mapping[compounds["identifier"]]
     skipped = []
     converted = {}
+    if field == "fingerprints":
+        return {n: fp for n, fp in zip(names, compounds["fingerprints"])}, []
     for n, m in zip(names, compounds["compounds"]):
         try:
             with warnings.catch_warnings():

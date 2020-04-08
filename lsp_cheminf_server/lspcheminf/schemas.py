@@ -28,6 +28,10 @@ class CompoundsSchema(Schema):
         description="An optional list of compound names",
         example="['Aspirin', 'Dopamine']",
     )
+    fingerprints = fields.List(
+        fields.String,
+        description="An optional list of compound fingerprints encoded as hexadecimal strings",
+    )
     identifier = identifier_field
 
 

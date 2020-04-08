@@ -36,6 +36,17 @@ test_that("morgan similarities with threshold are returned", {
   expect_equal(sim[["target"]], "aspirin")
 })
 
+test_that("morgan similarities with threshold using precalculated fingerprints are returned", {
+  sim <- chemical_similarity_threshold(
+    c("a" = "880DF", "b" = "881DF", "c" = "870E0"),
+    threshold = 0.8,
+    precalculated = TRUE
+  )
+  expect_equal(nrow(sim), 1L)
+  expect_equal(sim[["query"]], "a")
+  expect_equal(sim[["target"]], "b")
+})
+
 test_that("identical compounds are found", {
   sim <- compound_identity(
     c("resveratrol" = "InChI=1S/C14H12O3/c15-12-5-3-10(4-6-12)1-2-11-7-13(16)9-14(17)8-11/h1-9,15-17H/b2-1+"),

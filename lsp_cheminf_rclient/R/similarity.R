@@ -45,6 +45,8 @@ chemical_similarity <- function(
 #' Requires chemfp installed on the python server.
 #'
 #' @template similarity_template
+#' @param precalculated If true, query and target inchis contain pre-calculated
+#'   hex-encoded fingerprint strings instead of inchis
 #' @param threshold A double between 0 and 1 representing the minimum reported similarity.
 #' @template url_template
 #' @examples
@@ -56,18 +58,24 @@ chemical_similarity <- function(
 #'   ),
 #'   threshold = 0.1
 #' )
+#' chemical_similarity_threshold(
+#'     c("a" = "880DF", "b" = "881DF", "c" = "870E0"),
+#'     threshold = 0.8,
+#'     precalculated = TRUE
+#' )
 #' @export
 chemical_similarity_threshold <- function(
   query_inchis,
   target_inchis = NULL,
   fingerprint_type = c("morgan", "topological"),
   fingerprint_args = NULL,
+  precalculated = FALSE,
   threshold = 0.7,
   url = "http://127.0.0.1:8000"
 ) {
-  query_cmpds <- make_compound_list(query_inchis)
+  query_cmpds <- make_compound_list(query_inchis, precalculated = precalculated)
   target_cmpds <- if (!is.null(target_inchis))
-    make_compound_list(target_inchis)
+    make_compound_list(target_inchis, precalculated = precalculated)
   else
     NULL
   fingerprint_type <- match.arg(fingerprint_type)

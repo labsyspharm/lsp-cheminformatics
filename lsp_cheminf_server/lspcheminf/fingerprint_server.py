@@ -141,8 +141,10 @@ def similarity_matches_route():
     """
     data = SimilarityThresholdSchema().load(request.json)
     query = data["query"]
-    target = data["target"]
-    query_mols, query_skipped = convert_compound_request(query)
+    target = data.get("target", None)
+    query_mols, query_skipped = convert_compound_request(
+        query, field="fingerprints" if "fingerprints" in query else "compounds"
+    )
     query_arena = make_fingerprint_arena(
         query_mols,
         fingerprint_type=data["fingerprint_type"],
@@ -151,7 +153,9 @@ def similarity_matches_route():
     del query_mols
     target_arena = None
     if target is not None:
-        target_mols, target_skipped = convert_compound_request(target)
+        target_mols, target_skipped = convert_compound_request(
+            target, field="fingerprints" if "fingerprints" in target else "compounds"
+        )
         target_arena = make_fingerprint_arena(
             target_mols,
             fingerprint_type=data["fingerprint_type"],

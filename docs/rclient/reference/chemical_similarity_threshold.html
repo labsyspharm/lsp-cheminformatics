@@ -69,7 +69,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">lspcheminf</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">0.3.6</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">0.3.7</span>
       </span>
     </div>
 
@@ -119,6 +119,7 @@
   <span class='kw'>target_inchis</span> <span class='kw'>=</span> <span class='kw'>NULL</span>,
   <span class='kw'>fingerprint_type</span> <span class='kw'>=</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='st'>"morgan"</span>, <span class='st'>"topological"</span>),
   <span class='kw'>fingerprint_args</span> <span class='kw'>=</span> <span class='kw'>NULL</span>,
+  <span class='kw'>precalculated</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>,
   <span class='kw'>threshold</span> <span class='kw'>=</span> <span class='fl'>0.7</span>,
   <span class='kw'>url</span> <span class='kw'>=</span> <span class='st'>"http://127.0.0.1:8000"</span>
 )</pre>
@@ -146,6 +147,11 @@ the similarities of all pairwise combinations between query compounds are calcul
 function.</p></td>
     </tr>
     <tr>
+      <th>precalculated</th>
+      <td><p>If true, query and target inchis contain pre-calculated
+hex-encoded fingerprint strings instead of inchis</p></td>
+    </tr>
+    <tr>
       <th>threshold</th>
       <td><p>A double between 0 and 1 representing the minimum reported similarity.</p></td>
     </tr>
@@ -171,7 +177,14 @@ and their similarity.</p>
 )</div><div class='output co'>#&gt; <span style='color: #555555;'># A tibble: 1 x 3</span><span>
 #&gt;   query       score target 
 #&gt;   </span><span style='color: #555555;font-style: italic;'>&lt;chr&gt;</span><span>       </span><span style='color: #555555;font-style: italic;'>&lt;dbl&gt;</span><span> </span><span style='color: #555555;font-style: italic;'>&lt;chr&gt;</span><span>  
-#&gt; </span><span style='color: #555555;'>1</span><span> resveratrol 0.132 aspirin</div></span></pre>
+#&gt; </span><span style='color: #555555;'>1</span><span> resveratrol 0.132 aspirin</div><div class='input'><span class='fu'>chemical_similarity_threshold</span>(
+    <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='st'>"a"</span> <span class='kw'>=</span> <span class='st'>"880DF"</span>, <span class='st'>"b"</span> <span class='kw'>=</span> <span class='st'>"881DF"</span>, <span class='st'>"c"</span> <span class='kw'>=</span> <span class='st'>"870E0"</span>),
+    <span class='kw'>threshold</span> <span class='kw'>=</span> <span class='fl'>0.8</span>,
+    <span class='kw'>precalculated</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>
+)</div><div class='output co'>#&gt; </span><span style='color: #555555;'># A tibble: 1 x 3</span><span>
+#&gt;   query score target
+#&gt;   </span><span style='color: #555555;font-style: italic;'>&lt;chr&gt;</span><span> </span><span style='color: #555555;font-style: italic;'>&lt;dbl&gt;</span><span> </span><span style='color: #555555;font-style: italic;'>&lt;chr&gt;</span><span> 
+#&gt; </span><span style='color: #555555;'>1</span><span> a     0.929 b     </div></span></pre>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="sidebar">
     <h2>Contents</h2>
