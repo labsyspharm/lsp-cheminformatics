@@ -11,6 +11,7 @@ chemical_similarity_threshold(
   fingerprint_args = NULL,
   precalculated = FALSE,
   threshold = 0.7,
+  n_threads = 1,
   url = "http://127.0.0.1:8000"
 )
 }
@@ -30,6 +31,8 @@ function.}
 hex-encoded fingerprint strings instead of inchis}
 
 \item{threshold}{A double between 0 and 1 representing the minimum reported similarity.}
+
+\item{n_threads}{Number of threads used to process the query}
 
 \item{url}{URL to the lspcheminf python server}
 }

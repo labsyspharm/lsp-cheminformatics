@@ -69,7 +69,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">lspcheminf</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">0.3.7</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">0.3.8</span>
       </span>
     </div>
 
@@ -121,6 +121,7 @@
   <span class='kw'>fingerprint_args</span> <span class='kw'>=</span> <span class='kw'>NULL</span>,
   <span class='kw'>precalculated</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>,
   <span class='kw'>threshold</span> <span class='kw'>=</span> <span class='fl'>0.7</span>,
+  <span class='kw'>n_threads</span> <span class='kw'>=</span> <span class='fl'>1</span>,
   <span class='kw'>url</span> <span class='kw'>=</span> <span class='st'>"http://127.0.0.1:8000"</span>
 )</pre>
 
@@ -154,6 +155,10 @@ hex-encoded fingerprint strings instead of inchis</p></td>
     <tr>
       <th>threshold</th>
       <td><p>A double between 0 and 1 representing the minimum reported similarity.</p></td>
+    </tr>
+    <tr>
+      <th>n_threads</th>
+      <td><p>Number of threads used to process the query</p></td>
     </tr>
     <tr>
       <th>url</th>

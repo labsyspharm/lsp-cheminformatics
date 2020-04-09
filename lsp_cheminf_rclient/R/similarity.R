@@ -48,6 +48,7 @@ chemical_similarity <- function(
 #' @param precalculated If true, query and target inchis contain pre-calculated
 #'   hex-encoded fingerprint strings instead of inchis
 #' @param threshold A double between 0 and 1 representing the minimum reported similarity.
+#' @param n_threads Number of threads used to process the query
 #' @template url_template
 #' @examples
 #' chemical_similarity_threshold(
@@ -71,6 +72,7 @@ chemical_similarity_threshold <- function(
   fingerprint_args = NULL,
   precalculated = FALSE,
   threshold = 0.7,
+  n_threads = 1,
   url = "http://127.0.0.1:8000"
 ) {
   query_cmpds <- make_compound_list(query_inchis, precalculated = precalculated)
@@ -83,7 +85,8 @@ chemical_similarity_threshold <- function(
     query = query_cmpds,
     target = target_cmpds,
     fingerprint_type = fingerprint_type,
-    threshold = threshold
+    threshold = threshold,
+    n_threads = n_threads
   )
   if (!is.null(fingerprint_args))
     request_body[["fingerprint_args"]] <- fingerprint_args

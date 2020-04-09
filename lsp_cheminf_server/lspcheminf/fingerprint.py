@@ -122,7 +122,9 @@ def find_similarity_matches(
     query: chemfp.arena.FingerprintArena,
     target: Optional[chemfp.arena.FingerprintArena],
     threshold: float = 0.95,
+    n_threads: int = 1,
 ) -> Mapping[str, Mapping[str, float]]:
+    chemfp.set_num_threads(n_threads)
     if target is not None:
         match_res = chemfp.search.threshold_tanimoto_search_arena(
             query, target, threshold=threshold
