@@ -9,6 +9,8 @@ from .schemas import (
     ConvertIdResultSchema,
     CalculateMassSchema,
     CalculateMassResultSchema,
+    IsOrganicSchema,
+    IsOrganicResultSchema,
 )
 from .util import convert_compound_request, mol_identifier_mapping
 
@@ -31,7 +33,6 @@ def convert_ids():
               schema: ConvertIdResultSchema
     """
     data = ConvertIDSchema().load(request.json)
-    # print(f"Requested conversion of {format_in} to {format_out}")
     compounds, skipped = convert_compound_request(data["compounds"])
     mol_out_mapping = mol_identifier_mapping[data["target_identifier"]]
     compounds_out = {
@@ -68,14 +69,43 @@ def calculate_mass_route():
               schema: CalculateMassResultSchema
     """
     data = CalculateMassSchema().load(request.json)
-    # print(f"Requested conversion of {format_in} to {format_out}")
     compounds, skipped = convert_compound_request(data["compounds"])
     mass_out = {}
     for n, m in compounds.items():
         try:
             mass_out[n] = MolWt(m)
         except Exception as e:
-            skipped.append(mol_identifier_mapping[data["compounds"]["identifier"]](m))
+            skipped.append(n)
     out = {"mass": mass_out, "skipped": skipped}
+    CalculateMassResultSchema().validate(out)
+    return out
+
+
+@app.route("/properties/organic", methods=["POST"])
+def is_organic_route():
+    """Check if compound is organic. This is true if it contains at least one carbon.
+    ---
+    post:
+      summary: Check if compound is organic.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: IsOrganicSchema
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: IsOrganicResultSchema
+    """
+    data = CalculateMassSchema().load(request.json)
+    compounds, skipped = convert_compound_request(data["compounds"])
+    organic_out = {}
+    for n, m in compounds.items():
+        try:
+            organic_out[n] = any(a.GetSymbol() == "C" for a in m.GetAtoms())
+        except Exception as e:
+            skipped.append(n)
+    out = {"organic": organic_out, "skipped": skipped}
     CalculateMassResultSchema().validate(out)
     return out

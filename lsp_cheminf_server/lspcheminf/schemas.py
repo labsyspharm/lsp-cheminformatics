@@ -212,3 +212,12 @@ class CalculateMassSchema(Schema):
 class CalculateMassResultSchema(Schema):
     mass = fields.Mapping(keys=fields.String, values=fields.Float, required=True)
     skipped = skipped_field
+
+
+class IsOrganicSchema(Schema):
+    compounds = fields.Nested(CompoundsSchema, required=True)
+
+
+class IsOrganicResultSchema(Schema):
+    organic = fields.Mapping(keys=fields.String, values=fields.Boolean, required=True)
+    skipped = skipped_field

@@ -81,3 +81,45 @@ molecular_mass <- function(
     tibble::enframe("compound", "mass") %>%
     magrittr::inset2("mass", value = as.numeric(.[["mass"]]))
 }
+
+#' Check if compound is organic
+#'
+#' This is true if it contains at least one carbon.
+#'
+#' @param compounds A character vector of compounds as InChI strings. Can optionally be named.
+#' @template url_template
+#' @return A tibble with two columns, containing compound identifier and a
+#'   boolean flag if they are organic.
+#' @examples
+#' is_organic(
+#'   c(
+#'     "tofacitnib" = "InChI=1S/C16H20N6O/c1-11-5-8-22(14(23)3-6-17)9-13(11)21(2)16-12-4-7-18-15(12)19-10-20-16/h4,7,10-11,13H,3,5,8-9H2,1-2H3,(H,18,19,20)/t11-,13+/m1/s1",
+#'     "nitrous oxide" = "InChI=1S/N2O/c1-2-3"
+#'   )
+#' )
+#' @export
+is_organic <- function(
+  compounds,
+  url = "http://127.0.0.1:8000"
+) {
+  cmpds <- make_compound_list(compounds, identifier = "inchi")
+  request_body <- list(
+    compounds = cmpds
+  )
+  # browser()
+  convert_response <- httr::POST(
+    httr::modify_url(url, path = "properties/organic"),
+    body = request_body,
+    encode = "json",
+    httr::accept_json()
+  )
+  httr::content(
+    convert_response,
+    as = "parsed",
+    type = "application/json",
+    simplifyVector = TRUE
+  ) %>%
+    magrittr::extract2("organic") %>%
+    tibble::enframe("compound", "is_organic") %>%
+    magrittr::inset2("is_organic", value = as.logical(.[["is_organic"]]))
+}

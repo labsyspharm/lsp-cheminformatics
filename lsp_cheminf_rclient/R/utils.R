@@ -2,8 +2,15 @@ make_compound_list <- function(
   compounds,
   compound_names = NULL,
   precalculated = FALSE,
-  identifier = "inchi"
+  identifier = NULL
 ) {
+  identifier <- if (!is.null(identifier)) {
+    identifier
+  } else {
+    attr(compounds, "identifier", exact = TRUE)
+  }
+  if (is.null(identifier))
+    identifier <- "inchi"
   cmpds <- list(
     identifier = identifier
   )

@@ -196,7 +196,7 @@ def compound_identity_route():
     """
     data = CompoundIdentitySchema().load(request.json)
     query = data["query"]
-    target = data["target"]
+    target = data.get("target", None)
     query_mols, query_skipped = convert_compound_request(query)
     target_mols = None
     if target is not None:

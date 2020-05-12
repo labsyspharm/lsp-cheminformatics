@@ -33,7 +33,7 @@ MolmapArena = Union[Molmap, chemfp.arena.FingerprintArena]
 
 def convert_compound_request(
     compounds: Mapping, field: str = "compounds"
-) -> Tuple[Union[Molmap, Mapping[str, str]], List[Tuple[str, str]]]:
+) -> Tuple[Union[Molmap, Mapping[str, str]], List[str]]:
     names = map(str, compounds.get("names", list(range(len(compounds["compounds"])))))
     mapper = identifier_mol_mapping[compounds["identifier"]]
     skipped = []
@@ -45,10 +45,10 @@ def convert_compound_request(
             with warnings.catch_warnings():
                 mol = mapper(m)
         except Exception:
-            skipped.append((n, m))
+            skipped.append(n)
             continue
         if mol is not None:
             converted[n] = mol
         else:
-            skipped.append((n, m))
+            skipped.append(n)
     return converted, skipped
