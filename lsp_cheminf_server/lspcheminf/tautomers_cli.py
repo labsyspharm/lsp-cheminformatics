@@ -46,13 +46,28 @@ def cli():
     show_default=True,
     help="Standardize input molecule before canonicalization: https://molvs.readthedocs.io/en/latest/guide/standardize.html",
 )
+@click.option(
+    "--standardizer",
+    default="chembl",
+    show_default=True,
+    type=click.Choice(tautomers.STANDARDIZERS.keys()),
+    help="Standardizer used. Either molvs or chembl (https://github.com/chembl/ChEMBL_Structure_Pipeline)",
+)
 def canonicalize(
-    compound_file, output_file, compound_col, compound_encoding, standardize
+    compound_file,
+    output_file,
+    compound_col,
+    compound_encoding,
+    standardize,
+    standardizer,
 ):
     input_df = pd.read_csv(compound_file)
     click.echo("Read input")
     canonical, skipped = tautomers.canonicalize(
-        input_df[compound_col], compound_encoding, standardize=standardize
+        input_df[compound_col],
+        compound_encoding,
+        standardize=standardize,
+        standardizer=standardizer,
     )
     click.echo("Finished canonicalization")
     out_df = pd.DataFrame(canonical, columns=["query", "smiles", "inchi"])

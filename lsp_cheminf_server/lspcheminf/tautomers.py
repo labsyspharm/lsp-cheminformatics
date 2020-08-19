@@ -1,11 +1,30 @@
 import io
-from typing import Mapping, List, Any, Tuple, Optional
+from typing import Mapping, List, Any, Tuple, Optional, Callable
+from functools import partial
 
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Draw, inchi
 
 from molvs import standardize as mol_standardize
 from molvs import tautomer
+
+from chembl_structure_pipeline import standardize_mol as standardize_chembl
+
+molvs_standardizer = mol_standardize.Standardizer(prefer_organic=True)
+
+
+def standardize_molvs(mol: Chem.Mol):
+    st = molvs_standardizer.standardize(mol)
+    st = molvs_standardizer.charge_parent(st, skip_standardize=True)
+    st = molvs_standardizer.isotope_parent(st, skip_standardize=True)
+    st = molvs_standardizer.standardize(st)
+    return st
+
+
+STANDARDIZERS: Mapping[str, Callable] = {
+    "molvs": standardize_molvs,
+    "chembl": partial(standardize_chembl, check_exclusion=False),
+}
 
 
 def make_tautomers(mol, max_tautomers=10):
@@ -14,24 +33,19 @@ def make_tautomers(mol, max_tautomers=10):
 
 
 def canonicalize(
-    compounds: Mapping[str, Chem.Mol], standardize: bool = False
+    compounds: Mapping[str, Chem.Mol], standardize: bool = False, standardizer="chembl"
 ) -> Tuple[Mapping[str, Chem.Mol], List[str]]:
     canonicalizer = tautomer.TautomerCanonicalizer()
-    if standardize:
-        standardizer = mol_standardize.Standardizer(prefer_organic=True)
     res = {}
     skipped = list()
+    standardizer_fun = STANDARDIZERS[standardizer]
     # Suppress pesky warning messages
     lg = RDLogger.logger()
     lg.setLevel(RDLogger.ERROR)
     for k, mol in compounds.items():
         if standardize:
             try:
-                st = standardizer.standardize(mol)
-                st = standardizer.charge_parent(st, skip_standardize=True)
-                st = standardizer.isotope_parent(st, skip_standardize=True)
-                st = standardizer.standardize(st)
-                mol = st
+                mol = standardizer_fun(mol)
             except Exception as e:
                 print(f"Can't standardize {k}, using input unstandardized\n{e}")
         try:
@@ -42,7 +56,7 @@ def canonicalize(
             continue
         if standardize:
             try:
-                can = standardizer.standardize(can)
+                can = standardizer_fun(can)
             except Exception as e:
                 print(
                     f"Can't standardize canonical tautomer for {k}, using unstandardized version\n{e}"

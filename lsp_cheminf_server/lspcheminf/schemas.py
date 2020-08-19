@@ -122,7 +122,9 @@ class SimilarityThresholdSchema(SimilaritySchema):
         description="Minimum chemical similarity for matches",
     )
     n_threads = fields.Integer(
-        validate=validate.Range(1, float("Inf"), error="Number of threads must be above 1"),
+        validate=validate.Range(
+            1, float("Inf"), error="Number of threads must be above 1"
+        ),
         missing=1,
         description="Number of threads used for searching matches",
     )

@@ -163,7 +163,10 @@ def similarity_matches_route():
         )
         del target_mols
     matches = find_similarity_matches(
-        query_arena, target_arena, threshold=data["threshold"], n_threads=data["n_threads"]
+        query_arena,
+        target_arena,
+        threshold=data["threshold"],
+        n_threads=data["n_threads"],
     )
     out = {"query": [], "target": [], "score": []}
     for k, v in matches.items():
