@@ -33,7 +33,9 @@ def make_tautomers(mol, max_tautomers=10):
 
 
 def canonicalize(
-    compounds: Mapping[str, Chem.Mol], standardize: bool = False, standardizer="chembl"
+    compounds: Mapping[str, Chem.Mol],
+    standardize: bool = False,
+    standardizer: str = "chembl",
 ) -> Tuple[Mapping[str, Chem.Mol], List[str]]:
     canonicalizer = tautomer.TautomerCanonicalizer()
     res = {}

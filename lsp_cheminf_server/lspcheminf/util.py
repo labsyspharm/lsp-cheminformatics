@@ -1,5 +1,5 @@
 import warnings
-from typing import Mapping, List, Tuple, Any, Union
+from typing import Mapping, List, Tuple, Any, Union, Callable
 
 from rdkit import Chem
 from rdkit.Chem import inchi
@@ -14,13 +14,13 @@ try:
 except ImportError:
     chemfp_available = False
 
-identifier_mol_mapping = {
+identifier_mol_mapping: Mapping[str, Callable] = {
     "smiles": Chem.MolFromSmiles,
     "inchi": inchi.MolFromInchi,
     "smarts": Chem.MolFromSmarts,
 }
 
-mol_identifier_mapping = {
+mol_identifier_mapping: Mapping[str, Callable] = {
     "smiles": Chem.MolToSmiles,
     "inchi": inchi.MolToInchi,
     "inchi_key": inchi.MolToInchiKey,

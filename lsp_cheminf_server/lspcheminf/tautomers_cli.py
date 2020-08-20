@@ -4,6 +4,7 @@ import click
 import pandas as pd
 
 from . import tautomers
+from .util import convert_compound_request, mol_identifier_mapping
 
 
 @click.group()
@@ -63,13 +64,19 @@ def canonicalize(
 ):
     input_df = pd.read_csv(compound_file)
     click.echo("Read input")
+    compounds = convert_compound_request(
+        {"compounds": input_df[compound_col], "identifier": compound_encoding}
+    )
     canonical, skipped = tautomers.canonicalize(
-        input_df[compound_col],
-        compound_encoding,
-        standardize=standardize,
-        standardizer=standardizer,
+        compounds[0], standardize=standardize, standardizer=standardizer,
     )
     click.echo("Finished canonicalization")
-    out_df = pd.DataFrame(canonical, columns=["query", "smiles", "inchi"])
-    out_df = out_df.append(pd.DataFrame({"query": skipped}), sort=True)
+    mol_to_inchi = mol_identifier_mapping["inchi"]
+    out_df = pd.DataFrame(
+        {
+            "row": list(canonical.keys()),
+            "inchi": list(mol_to_inchi(x) for x in canonical.values()),
+        }
+    )
+    out_df = out_df.append(pd.DataFrame({"row": skipped}), sort=True)
     out_df.to_csv(output_file, index=False)
