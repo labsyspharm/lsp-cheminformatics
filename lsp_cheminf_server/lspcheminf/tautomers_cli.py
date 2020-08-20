@@ -52,7 +52,7 @@ def cli():
     default="chembl",
     show_default=True,
     type=click.Choice(tautomers.STANDARDIZERS.keys()),
-    help="Standardizer used. Either molvs or chembl (https://github.com/chembl/ChEMBL_Structure_Pipeline)",
+    help="Standardizer used. Either molvs, chembl or chembl-parent (https://github.com/chembl/ChEMBL_Structure_Pipeline)",
 )
 def canonicalize(
     compound_file,

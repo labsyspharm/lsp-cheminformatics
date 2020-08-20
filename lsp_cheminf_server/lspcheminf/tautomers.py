@@ -8,7 +8,10 @@ from rdkit.Chem import AllChem, Draw, inchi
 from molvs import standardize as mol_standardize
 from molvs import tautomer
 
-from chembl_structure_pipeline import standardize_mol as standardize_chembl
+from chembl_structure_pipeline import (
+    standardize_mol as standardize_chembl,
+    get_parent_mol,
+)
 
 molvs_standardizer = mol_standardize.Standardizer(prefer_organic=True)
 
@@ -21,9 +24,14 @@ def standardize_molvs(mol: Chem.Mol):
     return st
 
 
+def standardize_chembl_parent(mol: Chem.Mol):
+    return get_parent_mol(mol, check_exclusion=False)[0]
+
+
 STANDARDIZERS: Mapping[str, Callable] = {
     "molvs": standardize_molvs,
     "chembl": partial(standardize_chembl, check_exclusion=False),
+    "chembl-parent": standardize_chembl_parent,
 }
 
 
