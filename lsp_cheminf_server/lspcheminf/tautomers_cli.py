@@ -2,6 +2,7 @@ from __future__ import absolute_import, print_function
 
 import click
 import pandas as pd
+from progress.bar import Bar
 
 from . import tautomers
 from .util import convert_compound_request, mol_identifier_mapping
@@ -67,9 +68,14 @@ def canonicalize(
     compounds = convert_compound_request(
         {"compounds": input_df[compound_col], "identifier": compound_encoding}
     )
+    progress = Bar(max=len(input_df.index))
     canonical, skipped = tautomers.canonicalize(
-        compounds[0], standardize=standardize, standardizer=standardizer,
+        compounds[0],
+        standardize=standardize,
+        standardizer=standardizer,
+        progress_callback=progress.goto,
     )
+    progress.finish()
     click.echo("Finished canonicalization")
     mol_to_inchi = mol_identifier_mapping["inchi"]
     out_df = pd.DataFrame(

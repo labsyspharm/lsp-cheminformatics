@@ -44,6 +44,7 @@ def canonicalize(
     compounds: Mapping[str, Chem.Mol],
     standardize: bool = False,
     standardizer: str = "chembl",
+    progress_callback: Optional[Callable] = None,
 ) -> Tuple[Mapping[str, Chem.Mol], List[str]]:
     canonicalizer = tautomer.TautomerCanonicalizer()
     res = {}
@@ -52,7 +53,9 @@ def canonicalize(
     # Suppress pesky warning messages
     lg = RDLogger.logger()
     lg.setLevel(RDLogger.ERROR)
-    for k, mol in compounds.items():
+    for i, (k, mol) in enumerate(compounds.items()):
+        if i % 100 == 0 and progress_callback is not None:
+            progress_callback(i)
         if standardize:
             try:
                 mol = standardizer_fun(mol)
