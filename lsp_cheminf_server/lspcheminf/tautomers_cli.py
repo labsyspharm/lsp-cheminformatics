@@ -68,14 +68,14 @@ def canonicalize(
     compounds = convert_compound_request(
         {"compounds": input_df[compound_col], "identifier": compound_encoding}
     )
-    progress = Bar(max=len(input_df.index))
+    # progress = Bar(max=len(input_df.index))
     canonical, skipped = tautomers.canonicalize(
         compounds[0],
         standardize=standardize,
         standardizer=standardizer,
-        progress_callback=progress.goto,
+        progress_callback=lambda x: print(x, flush=True),
     )
-    progress.finish()
+    # progress.finish()
     click.echo("Finished canonicalization")
     mol_to_inchi = mol_identifier_mapping["inchi"]
     out_df = pd.DataFrame(
