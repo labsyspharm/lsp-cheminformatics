@@ -1,7 +1,9 @@
 import io
 from typing import Mapping, List, Any, Tuple, Optional, Callable
 from functools import partial
+from concurrent.futures import TimeoutError
 
+from pebble import concurrent, ProcessExpired
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Draw, inchi
 
@@ -40,13 +42,38 @@ def make_tautomers(mol, max_tautomers=10):
     return enum(mol)
 
 
+def canonicalize_compound(
+    mol: Chem.Mol, canonicalizer_fun: Callable, standardizer_fun: Optional[Callable],
+):
+    if standardizer_fun is not None:
+        try:
+            mol = standardizer_fun(mol)
+        except Exception as e:
+            pass
+    try:
+        can = canonicalizer_fun(mol)
+    except Exception as e:
+        raise RuntimeError(f"Could not canonicalize\n{e}")
+    if standardizer_fun is not None:
+        try:
+            can = standardizer_fun(can)
+        except Exception as e:
+            pass
+    return can
+
+
 def canonicalize(
     compounds: Mapping[str, Chem.Mol],
     standardize: bool = False,
     standardizer: str = "chembl",
     progress_callback: Optional[Callable] = None,
+    timeout: Optional[int] = None,
 ) -> Tuple[Mapping[str, Chem.Mol], List[str]]:
-    canonicalizer = tautomer.TautomerCanonicalizer()
+    @concurrent.process(timeout=timeout)
+    def process_compound(*args, **kwargs):
+        return canonicalize_compound(*args, **kwargs)
+
+    canonicalizer_fun = tautomer.TautomerCanonicalizer()
     res = {}
     skipped = list()
     standardizer_fun = STANDARDIZERS[standardizer]
@@ -56,24 +83,17 @@ def canonicalize(
     for i, (k, mol) in enumerate(compounds.items()):
         if i % 100 == 0 and progress_callback is not None:
             progress_callback(i)
-        if standardize:
-            try:
-                mol = standardizer_fun(mol)
-            except Exception as e:
-                print(f"Can't standardize {k}, using input unstandardized\n{e}")
+        future = process_compound(
+            mol, canonicalizer_fun=canonicalizer_fun, standardizer_fun=standardizer_fun
+        )
         try:
-            can = canonicalizer(mol)
-        except Exception as e:
-            print(f"Skipping {k}: Could not canonicalize\n{e}")
+            can = future.result()
+        except TimeoutError as error:
+            print(f"Processing `{k}` took longer than {timeout}s. Skipping.")
             skipped.append(k)
-            continue
-        if standardize:
-            try:
-                can = standardizer_fun(can)
-            except Exception as e:
-                print(
-                    f"Can't standardize canonical tautomer for {k}, using unstandardized version\n{e}"
-                )
+        except Exception as error:
+            print(f"Error canonicalizing {k}. Skipping.\n{error}")
+            skipped.append(k)
         res[k] = can
     return (res, skipped)
 

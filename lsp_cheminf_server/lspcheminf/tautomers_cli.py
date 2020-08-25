@@ -55,6 +55,13 @@ def cli():
     type=click.Choice(tautomers.STANDARDIZERS.keys()),
     help="Standardizer used. Either molvs, chembl or chembl-parent (https://github.com/chembl/ChEMBL_Structure_Pipeline)",
 )
+@click.option(
+    "--timeout",
+    default=None,
+    show_default=True,
+    type=int,
+    help="Limit processing time for compounds",
+)
 def canonicalize(
     compound_file,
     output_file,
@@ -62,6 +69,7 @@ def canonicalize(
     compound_encoding,
     standardize,
     standardizer,
+    timeout,
 ):
     input_df = pd.read_csv(compound_file)
     click.echo("Read input")
@@ -74,6 +82,7 @@ def canonicalize(
         standardize=standardize,
         standardizer=standardizer,
         progress_callback=lambda x: print(x, flush=True),
+        timeout=timeout,
     )
     # progress.finish()
     click.echo("Finished canonicalization")

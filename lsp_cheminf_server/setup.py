@@ -17,6 +17,7 @@ setup(
         "marshmallow",
         "apispec",
         "chembl_structure_pipeline@ssh://git@github.com/chembl/ChEMBL_Structure_Pipeline.git",
+        "pebble",
     ],
     classifiers=[
         "Programming Language :: Python",
