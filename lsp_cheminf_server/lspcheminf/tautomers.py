@@ -87,14 +87,13 @@ def canonicalize(
             mol, canonicalizer_fun=canonicalizer_fun, standardizer_fun=standardizer_fun
         )
         try:
-            can = future.result()
+            res[k] = future.result()
         except TimeoutError as error:
             print(f"Processing `{k}` took longer than {timeout}s. Skipping.")
             skipped.append(k)
         except Exception as error:
             print(f"Error canonicalizing {k}. Skipping.\n{error}")
             skipped.append(k)
-        res[k] = can
     return (res, skipped)
 
 
