@@ -4,19 +4,15 @@
 \alias{canonicalize_compound}
 \title{Find canonical compound representation}
 \usage{
-canonicalize_compound(
-  compounds,
-  standardize = TRUE,
-  url = "http://127.0.0.1:8000"
-)
+canonicalize_compound(query, standardize = TRUE, url = "http://127.0.0.1:8000")
 }
 \arguments{
+\item{query}{A character vector of compounds as InChI strings. Can optionally be named.}
+
 \item{standardize}{Standardize input molecule before canonicalization.
 See https://molvs.readthedocs.io/en/latest/guide/standardize.html}
 
 \item{url}{URL to the lspcheminf python server}
-
-\item{query}{A character vector of compounds as InChI strings. Can optionally be named.}
 }
 \value{
 A tibble with two columns, containing query compound names and their

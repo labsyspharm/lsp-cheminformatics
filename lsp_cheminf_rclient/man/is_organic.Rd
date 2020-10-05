@@ -4,10 +4,12 @@
 \alias{is_organic}
 \title{Check if compound is organic}
 \usage{
-is_organic(compounds, url = "http://127.0.0.1:8000")
+is_organic(x, url = "http://127.0.0.1:8000")
 }
 \arguments{
-\item{compounds}{A character vector of compounds as InChI strings. Can optionally be named.}
+\item{x}{A character vector of compounds, optionally named.
+Assumed to be InChI. Specify descriptor explicitly or attach
+pre-computed fingerprints using \code{\link[=compounds]{compounds()}}.}
 
 \item{url}{URL to the lspcheminf python server}
 }

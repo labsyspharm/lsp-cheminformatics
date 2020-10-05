@@ -1,6 +1,9 @@
-#' @param query_inchis A character vector of compound inchis. Can optionally be named.
+#' @param query A character vector of compounds, optionally named.
+#'   Assumed to be InChI. Specify descriptor explicitly or attach
+#'   pre-computed fingerprints using [compounds()]. Pre-computed fingerprints
+#'   are used instead of chemical descriptors if given.
 #'   All similarities between the query and the target compounds are calculated.
-#' @param target_inchis An optional character vector of compound inchis. If not given,
+#' @param target A character vector of compounds like `query`. If not given,
 #'   the similarities of all pairwise combinations between query compounds are calculated.
 #' @param fingerprint_type Calculate morgan or topological fingerprints.
 #' @param fingerprint_args Optional list of additional arguments to the RDKit fingerprinting

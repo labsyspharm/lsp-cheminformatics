@@ -5,30 +5,29 @@
 \title{Find chemical similarity matches up to a threshold.}
 \usage{
 chemical_similarity_threshold(
-  query_inchis,
-  target_inchis = NULL,
+  query,
+  target = NULL,
   fingerprint_type = c("morgan", "topological"),
   fingerprint_args = NULL,
-  precalculated = FALSE,
   threshold = 0.7,
   n_threads = 1,
   url = "http://127.0.0.1:8000"
 )
 }
 \arguments{
-\item{query_inchis}{A character vector of compound inchis. Can optionally be named.
+\item{query}{A character vector of compounds, optionally named.
+Assumed to be InChI. Specify descriptor explicitly or attach
+pre-computed fingerprints using \code{\link[=compounds]{compounds()}}. Pre-computed fingerprints
+are used instead of chemical descriptors if given.
 All similarities between the query and the target compounds are calculated.}
 
-\item{target_inchis}{An optional character vector of compound inchis. If not given,
+\item{target}{A character vector of compounds like \code{query}. If not given,
 the similarities of all pairwise combinations between query compounds are calculated.}
 
 \item{fingerprint_type}{Calculate morgan or topological fingerprints.}
 
 \item{fingerprint_args}{Optional list of additional arguments to the RDKit fingerprinting
 function.}
-
-\item{precalculated}{If true, query and target inchis contain pre-calculated
-hex-encoded fingerprint strings instead of inchis}
 
 \item{threshold}{A double between 0 and 1 representing the minimum reported similarity.}
 
@@ -53,8 +52,10 @@ chemical_similarity_threshold(
   threshold = 0.1
 )
 chemical_similarity_threshold(
-    c("a" = "880DF", "b" = "881DF", "c" = "870E0"),
-    threshold = 0.8,
-    precalculated = TRUE
+    compounds(
+      c("a" = "880DF", "b" = "881DF", "c" = "870E0"),
+      descriptor = "fingerprint"
+    ),
+    threshold = 0.8
 )
 }

@@ -5,15 +5,15 @@
 \title{Calculate chemical fingerprints}
 \usage{
 calculate_fingerprints(
-  query_inchis,
+  query,
   fingerprint_type = c("morgan", "topological"),
   fingerprint_args = NULL,
   url = "http://127.0.0.1:8000"
 )
 }
 \arguments{
-\item{query_inchis}{A character vector of compound inchis. Can optionally be named.
-All fingerprints for the given compounds are calculated.}
+\item{query}{A character vector of query compounds, optionally named.
+Assumed to be InChI. Specify descriptor explicitly using \code{\link[=compounds]{compounds()}}.}
 
 \item{fingerprint_type}{Calculate morgan or topological fingerprints.}
 

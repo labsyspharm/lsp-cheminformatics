@@ -4,18 +4,15 @@
 \alias{compound_identity}
 \title{Find identical compounds}
 \usage{
-compound_identity(
-  query_inchis,
-  target_inchis = NULL,
-  url = "http://127.0.0.1:8000"
-)
+compound_identity(query, target = NULL, url = "http://127.0.0.1:8000")
 }
 \arguments{
-\item{query_inchis}{A character vector of compound inchis. Can optionally be named.
-All similarities between the query and the target compounds are calculated.}
+\item{query}{A character vector of compounds, optionally named.
+Assumed to be InChI. Specify descriptor explicitly using \code{\link[=compounds]{compounds()}}.
+All identities between the query and the target compounds are calculated.}
 
-\item{target_inchis}{An optional character vector of compound inchis. If not given,
-the similarities of all pairwise combinations between query compounds are calculated.}
+\item{target}{A character vector of compounds like \code{query}. If not given,
+the identities of all pairwise combinations between query compounds are calculated.}
 
 \item{url}{URL to the lspcheminf python server}
 }

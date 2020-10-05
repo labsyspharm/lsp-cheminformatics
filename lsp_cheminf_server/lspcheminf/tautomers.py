@@ -45,21 +45,25 @@ def make_tautomers(mol, max_tautomers=10):
 def canonicalize_compound(
     mol: Chem.Mol, canonicalizer_fun: Callable, standardizer_fun: Optional[Callable],
 ):
+    done = {k: False for k in ["standardize_1", "canonicalize", "standardize_2"]}
     if standardizer_fun is not None:
         try:
             mol = standardizer_fun(mol)
+            done["standardize_1"] = True
         except Exception as e:
             pass
     try:
-        can = canonicalizer_fun(mol)
+        mol = canonicalizer_fun(mol)
+        done["canonicalize"] = True
     except Exception as e:
-        raise RuntimeError(f"Could not canonicalize\n{e}")
+        pass
     if standardizer_fun is not None:
         try:
-            can = standardizer_fun(can)
+            mol = standardizer_fun(mol)
+            done["standardize_2"] = True
         except Exception as e:
             pass
-    return can
+    return mol, done
 
 
 def canonicalize(

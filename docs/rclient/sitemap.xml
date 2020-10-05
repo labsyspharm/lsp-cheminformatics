@@ -22,7 +22,10 @@
     <loc>https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference/compound_identity.html</loc>
   </url>
   <url>
-    <loc>https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference/convert_compound_identifier.html</loc>
+    <loc>https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference/compounds.html</loc>
+  </url>
+  <url>
+    <loc>https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference/convert_compound_descriptor.html</loc>
   </url>
   <url>
     <loc>https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference/draw_compound_grid.html</loc>
@@ -35,6 +38,9 @@
   </url>
   <url>
     <loc>https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference/molecular_mass.html</loc>
+  </url>
+  <url>
+    <loc>https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference/op-null-default.html</loc>
   </url>
   <url>
     <loc>https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference/pipe.html</loc>

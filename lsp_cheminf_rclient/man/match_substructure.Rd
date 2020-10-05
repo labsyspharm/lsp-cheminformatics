@@ -5,22 +5,20 @@
 \title{Find substructure matches.}
 \usage{
 match_substructure(
-  queries,
-  target_inchis = NULL,
-  query_identifier = c("inchi", "smiles", "smarts"),
+  query,
+  target = NULL,
   substructure_args = NULL,
   url = "http://127.0.0.1:8000"
 )
 }
 \arguments{
-\item{queries}{A character vector of query compounds or fragments.  Can optionally be named.
+\item{query}{A character vector of query compounds or fragments, optionally named.
+Assumed to be InChI. Specify descriptor explicitly using \code{\link[=compounds]{compounds()}}.
 Their structure will be compared to the substructure of the target compounds.}
 
-\item{target_inchis}{An optional character vector of compound inchis.
+\item{target}{A character vector of compounds like \code{query}. If not given,
 The substructure of targets will be scanned for matches with the query structures. If not given,
 the all pairwise combinations between query compounds are scanned for matches.}
-
-\item{query_identifier}{Chemical identifier used for the queries.}
 
 \item{substructure_args}{Optional additional arguments passed to RDKit substructure matching function.
 See http://www.rdkit.org/docs/source/rdkit.Chem.rdchem.html#rdkit.Chem.rdchem.Mol.GetSubstructMatches}
@@ -37,11 +35,13 @@ Find targets whose substructure matches with a query.
 }
 \examples{
 match_substructure(
-  c("secondary_amine" = "[H]N(C)C"),
+  compounds(
+    c("secondary_amine" = "[H]N(C)C"),
+    descriptor = "smiles"
+  ),
   c(
     "tofacitnib" = "InChI=1S/C16H20N6O/c1-11-5-8-22(14(23)3-6-17)9-13(11)21(2)16-12-4-7-18-15(12)19-10-20-16/h4,7,10-11,13H,3,5,8-9H2,1-2H3,(H,18,19,20)/t11-,13+/m1/s1",
     "aspirin" = "InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)"
-  ),
-  query_identifier = "smiles"
+  )
 )
 }

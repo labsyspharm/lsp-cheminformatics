@@ -1,7 +1,8 @@
-pandoc: 2.3.1
-pkgdown: 1.4.1
+pandoc: 2.7.3
+pkgdown: 1.6.1
 pkgdown_sha: ~
-articles: []
+articles: {}
+last_built: 2020-10-05T19:07Z
 urls:
   reference: https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference
   article: https://labsyspharm.github.io/lsp-cheminformatics/rclient/articles

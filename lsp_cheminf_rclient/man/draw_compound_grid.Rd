@@ -5,30 +5,29 @@
 \title{Draw grid of compound structures.}
 \usage{
 draw_compound_grid(
-  inchis,
+  x,
   file,
   common_core = NULL,
-  common_core_identifier = c("smiles", "inchi", "smarts"),
   draw_args = NULL,
   url = "http://127.0.0.1:8000"
 )
 }
 \arguments{
-\item{inchis}{A character vector of compound inchis. Can optionally be named.}
+\item{x}{A character vector of compounds, optionally named.
+Assumed to be InChI. Specify descriptor explicitly or attach
+pre-computed fingerprints using \code{\link[=compounds]{compounds()}}.}
 
 \item{file}{Path to output file where svg of compounds will be saved.}
 
 \item{common_core}{Optionally, a single common core structure of all compounds
-used to align them for plotting.}
-
-\item{common_core_identifier}{Chemical identifier used for the queries.}
+used to align them for plotting. Use \code{\link[=compounds]{compounds()}} as input.}
 
 \item{draw_args}{Optional list of additional arguments to the RDKit drawing function.}
 
 \item{url}{URL to the lspcheminf python server}
 }
 \value{
-Invisibly returns character with svg file content.
+Invisibly returns character vector with svg file content.
 }
 \description{
 Draw grid of compound structures.
@@ -49,8 +48,7 @@ draw_compound_grid(
     "aspirin" = "InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)"
   ),
   file = "test.svg",
-  common_core = "[H]N(C)C",
-  common_core_identifier = "smiles",
+  common_core = compounds("[H]N(C)C", descriptor = "smiles"),
   draw_args = list(molsPerRow = 6)
 )
 }

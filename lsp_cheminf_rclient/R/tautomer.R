@@ -15,13 +15,13 @@
 #' )
 #' @export
 canonicalize_compound <- function(
-  compounds,
+  query,
   standardize = TRUE,
   url = "http://127.0.0.1:8000"
 ) {
-  cmpds <- make_compound_list(compounds, identifier = "inchi")
+  cmpds <- compounds(query)
   request_body <- list(
-    compounds = cmpds,
+    compounds = make_compound_json(cmpds),
     standardize = standardize
   )
   response <- httr::POST(

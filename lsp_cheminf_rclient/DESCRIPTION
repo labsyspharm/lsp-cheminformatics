@@ -1,6 +1,6 @@
 Package: lspcheminf
 Title: Connect To LSP Cheminformatics API
-Version: 0.3.9
+Version: 0.4.0
 Authors@R: 
     person(given = "Clemens",
            family = "Hug",
@@ -18,8 +18,9 @@ Imports:
     httr,
     tibble,
     magrittr,
-    jsonlite
+    jsonlite,
+    rlang
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.1
 Suggests: 
     testthat (>= 2.1.0)
