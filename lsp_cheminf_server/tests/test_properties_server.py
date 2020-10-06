@@ -34,13 +34,17 @@ def test_id_conversion(client):
     assert len(res_json["compounds"]["compounds"]) == 4
     assert all(len(x) > 10 for x in res_json["compounds"]["compounds"])
 
+
 def test_organic(client):
     res = client.post(
         "/properties/organic",
         json={
             "compounds": {
                 "identifier": "smiles",
-                "compounds": [r"COc1ccc(CCN2CCCn3c2nc4N(C)C(=O)N(CC(C)C)C(=O)c34)cc1OC", r"[Pb]"]
+                "compounds": [
+                    r"COc1ccc(CCN2CCCn3c2nc4N(C)C(=O)N(CC(C)C)C(=O)c34)cc1OC",
+                    r"[Pb]",
+                ],
             }
         },
     )

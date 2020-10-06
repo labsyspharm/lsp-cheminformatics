@@ -80,7 +80,11 @@ def test_similarity_threshold_fp(client):
     res = client.post(
         "/fingerprints/similarity_threshold",
         json={
-            "query": {"identifier": "inchi", "compounds": ["a", "b", "c"], "fingerprints": ["880DF", "881DF", "870E0"]},
+            "query": {
+                "identifier": "inchi",
+                "compounds": ["a", "b", "c"],
+                "fingerprints": ["880DF", "881DF", "870E0"],
+            },
             "threshold": 0.8,
         },
     )
@@ -125,3 +129,40 @@ def test_calculate_fingerprints(client, fingerprint_type, fingerprint_args):
     assert res.status_code == 200
     res_json = res.get_json()
     assert all(len(x) == 2 for x in res_json.values())
+
+
+def test_maximum_common_substructure(client):
+    res = client.post(
+        "/fingerprints/maximum_common_substructure",
+        json={
+            "query": {
+                "identifier": "smiles",
+                "compounds": [
+                    "O=C(NCc1cc(OC)c(O)cc1)CCCC/C=C/C(C)C",
+                    "CC(C)CCCCCC(=O)NCC1=CC(=C(C=C1)O)OC",
+                    "c1(C=O)cc(OC)c(O)cc1",
+                ],
+            },
+        },
+    )
+    assert res.status_code == 200
+    res_json = res.get_json()
+    assert res_json["substructure"]["compounds"] == "COC1:C:C(C):C:C:C:1O"
+
+
+def test_murcko_scaffold(client):
+    res = client.post(
+        "/fingerprints/murcko_scaffold",
+        json={
+            "query": {
+                "identifier": "smiles",
+                "compounds": [
+                    "O=C(NCc1cc(OC)c(O)cc1)CCCC/C=C/C(C)C",
+                    "CC1=C(C=C(C=C1)NC(=O)C2=CC=C(C=C2)CN3CCN(CC3)C)NC4=NC=CC(=N4)C5=CN=CC=C5",
+                ],
+            },
+        },
+    )
+    assert res.status_code == 200
+    res_json = res.get_json()
+    assert res_json["scaffolds"]["compounds"][0] == "c1ccccc1"

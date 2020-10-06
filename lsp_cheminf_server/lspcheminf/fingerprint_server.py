@@ -6,11 +6,15 @@ import sys
 import tempfile
 import pandas as pd
 from flask import Flask, request, send_file
-from rdkit.Chem import AllChem
-from rdkit.Chem import inchi
+from rdkit.Chem import AllChem, inchi, rdFMCS
+from rdkit.Chem.Scaffolds import MurckoScaffold
 
 from lspcheminf import app
-from lspcheminf.util import convert_compound_request
+from lspcheminf.util import (
+    convert_compound_request,
+    mol_identifier_mapping,
+    identifier_mol_mapping,
+)
 from lspcheminf.fingerprint import (
     calculate_similarity,
     find_substructure_matches,
@@ -29,6 +33,8 @@ from lspcheminf.schemas import (
     CompoundIdentityResultSchema,
     CalculateFingerprintsSchema,
     CalculateFingerprintsResultSchema,
+    MCSSchema,
+    MCSResultSchema,
 )
 
 
@@ -248,4 +254,77 @@ def calculate_fingerprint_route():
         "fingerprints": list(fingerprints.values()),
     }
     CalculateFingerprintsResultSchema().validate(out)
+    return out
+
+
+@app.route("/fingerprints/maximum_common_substructure", methods=["GET", "POST"])
+def maximum_common_substructure_route():
+    """Calculate maximum common substructure (MCS) of compounds.
+    ---
+    post:
+      summary: Calculate MCS
+      description: Calculate maximum common substructure (MCS) of compounds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: MCSSchema
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: MCSResultSchema
+    """
+    data = MCSSchema().load(request.json)
+    query = data["query"]
+    query_mols, query_skipped = convert_compound_request(query)
+    substructure = rdFMCS.FindMCS(list(query_mols.values()))
+    substructure_mol = identifier_mol_mapping["smarts"](substructure.smartsString)
+    out = {
+        "substructure": {
+            "compounds": mol_identifier_mapping[query["identifier"]](substructure_mol),
+            "identifier": query["identifier"],
+        },
+        "skipped": query_skipped,
+    }
+    MCSResultSchema().validate(out)
+    return out
+
+
+@app.route("/fingerprints/murcko_scaffold", methods=["GET", "POST"])
+def murcko_scaffold_route():
+    """Calculate Murcko Scaffold of compounds.
+    ---
+    post:
+      summary: Calculate Murcko scaffold
+      description: Calculate Murcko scaffold of compounds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: MCSSchema
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: MCSResultSchema
+    """
+    data = MCSSchema().load(request.json)
+    query = data["query"]
+    query_mols, query_skipped = convert_compound_request(query)
+    scaffolds = {
+        n: MurckoScaffold.GetScaffoldForMol(mol) for n, mol in query_mols.items()
+    }
+    out = {
+        "scaffolds": {
+            "compounds": [
+                mol_identifier_mapping[query["identifier"]](mol)
+                for mol in scaffolds.values()
+            ],
+            "names": list(scaffolds.keys()),
+            "identifier": query["identifier"],
+        },
+        "skipped": query_skipped,
+    }
+    MCSResultSchema().validate(out)
     return out

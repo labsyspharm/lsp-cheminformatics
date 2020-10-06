@@ -223,3 +223,12 @@ class IsOrganicSchema(Schema):
 class IsOrganicResultSchema(Schema):
     organic = fields.Mapping(keys=fields.String, values=fields.Boolean, required=True)
     skipped = skipped_field
+
+
+class MCSSchema(Schema):
+    query = fields.Nested(CompoundsSchema, required=True)
+
+
+class MCSResultSchema(Schema):
+    substructure = fields.Nested(CompoundsSchema, required=True)
+    skipped = skipped_field

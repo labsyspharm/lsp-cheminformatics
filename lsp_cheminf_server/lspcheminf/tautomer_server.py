@@ -79,7 +79,7 @@ def canonicalize_route():
     out = {
         "canonical": {
             "identifier": "inchi",
-            "compounds": {k: mol_to_inchi(mol) for k, mol in res.items()},
+            "compounds": {k: mol_to_inchi(mol[0]) for k, mol in res.items()},
         },
         "skipped": skipped,
     }
