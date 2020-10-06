@@ -119,3 +119,89 @@ is_organic <- function(
     tibble::enframe("compound", "is_organic") %>%
     magrittr::inset2("is_organic", value = as.logical(.[["is_organic"]]))
 }
+
+#' Calculate maximum common substructure (MCS) of compounds.
+#'
+#'
+#' @template compounds_template
+#' @template url_template
+#' @return A character containing the common substructure of the query compounds.
+#' @examples
+#' maximum_common_substructure(
+#'   compounds(
+#'     c(
+#'       "O=C(NCc1cc(OC)c(O)cc1)CCCC/C=C/C(C)C",
+#'       "CC(C)CCCCCC(=O)NCC1=CC(=C(C=C1)O)OC",
+#'       "c1(C=O)cc(OC)c(O)cc1"
+#'     ),
+#'     descriptor = "smiles"
+#'   )
+#' )
+#' @export
+maximum_common_substructure <- function(
+  x,
+  url = "http://127.0.0.1:8000"
+) {
+  cmpds <- compounds(x)
+  request_body <- list(
+    query = make_compound_json(cmpds)
+  )
+  # browser()
+  convert_response <- httr::POST(
+    httr::modify_url(url, path = "fingerprints/maximum_common_substructure"),
+    body = request_body,
+    encode = "json",
+    httr::accept_json()
+  )
+  httr::content(
+    convert_response,
+    as = "parsed",
+    type = "application/json",
+    simplifyVector = TRUE
+  ) %>%
+    magrittr::extract2("substructure") %>%
+    magrittr::extract2("compounds")
+}
+
+#' Calculate Murcko Scaffold of compounds.
+#'
+#'
+#' @template compounds_template
+#' @template url_template
+#' @return A tibble with two columns, containing compound name and murcko scaffold
+#' @examples
+#' murcko_scaffold(
+#'   compounds(
+#'     c(
+#'       "O=C(NCc1cc(OC)c(O)cc1)CCCC/C=C/C(C)C",
+#'       "CC1=C(C=C(C=C1)NC(=O)C2=CC=C(C=C2)CN3CCN(CC3)C)NC4=NC=CC(=N4)C5=CN=CC=C5"
+#'     ),
+#'     descriptor = "smiles"
+#'   )
+#' )
+#' @export
+murcko_scaffold <- function(
+  x,
+  url = "http://127.0.0.1:8000"
+) {
+  cmpds <- compounds(x)
+  request_body <- list(
+    query = make_compound_json(cmpds)
+  )
+  # browser()
+  convert_response <- httr::POST(
+    httr::modify_url(url, path = "fingerprints/murcko_scaffold"),
+    body = request_body,
+    encode = "json",
+    httr::accept_json()
+  )
+  httr::content(
+    convert_response,
+    as = "parsed",
+    type = "application/json",
+    simplifyVector = TRUE
+  ) %>%
+    magrittr::extract2("scaffolds") %>%
+    tibble::as_tibble() %>%
+    dplyr::select(name = names, scaffold = compounds)
+}

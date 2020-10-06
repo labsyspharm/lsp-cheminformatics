@@ -37,7 +37,13 @@
     <loc>https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference/match_substructure.html</loc>
   </url>
   <url>
+    <loc>https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference/maximum_common_substructure.html</loc>
+  </url>
+  <url>
     <loc>https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference/molecular_mass.html</loc>
+  </url>
+  <url>
+    <loc>https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference/murcko_scaffold.html</loc>
   </url>
   <url>
     <loc>https://labsyspharm.github.io/lsp-cheminformatics/rclient/reference/op-null-default.html</loc>

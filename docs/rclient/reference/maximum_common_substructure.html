@@ -6,7 +6,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Function reference • lspcheminf</title>
+<title>Calculate maximum common substructure (MCS) of compounds. — maximum_common_substructure • lspcheminf</title>
 
 
 <!-- jquery -->
@@ -39,7 +39,8 @@
 
 
 
-<meta property="og:title" content="Function reference" />
+<meta property="og:title" content="Calculate maximum common substructure (MCS) of compounds. — maximum_common_substructure" />
+<meta property="og:description" content="Calculate maximum common substructure (MCS) of compounds." />
 
 
 
@@ -58,7 +59,7 @@
   </head>
 
   <body data-spy="scroll" data-target="#toc">
-    <div class="container template-reference-index">
+    <div class="container template-reference-topic">
       <header>
       <div class="navbar navbar-default navbar-fixed-top" role="navigation">
   <div class="container">
@@ -105,120 +106,51 @@
       </header>
 
 <div class="row">
-  <div class="contents col-md-9">
+  <div class="col-md-9 contents">
     <div class="page-header">
-      <h1>Reference</h1>
+    <h1>Calculate maximum common substructure (MCS) of compounds.</h1>
+    <small class="dont-index">Source: <a href='https://github.com/labsyspharm/lsp-cheminformatics/blob/master/R/properties.R'><code>R/properties.R</code></a></small>
+    <div class="hidden name"><code>maximum_common_substructure.Rd</code></div>
     </div>
 
-    <table class="ref-index">
+    <div class="ref-description">
+    <p>Calculate maximum common substructure (MCS) of compounds.</p>
+    </div>
 
-    <colgroup>
-      
-      <col class="alias" />
-      <col class="title" />
-    </colgroup>
+    <pre class="usage"><span class='fu'>maximum_common_substructure</span><span class='op'>(</span><span class='va'>x</span>, url <span class='op'>=</span> <span class='st'>"http://127.0.0.1:8000"</span><span class='op'>)</span></pre>
 
-    <tbody>
-      <tr>
-        <th colspan="2">
-          <h2 id="section-all-functions" class="hasAnchor"><a href="#section-all-functions" class="anchor"></a>All functions</h2>
-          <p class="section-desc"></p>
-        </th>
-      </tr>
-      
-      
-    </tbody><tbody>
-      
-      
-      <tr>
-        
-        <td>
-          <p><code><a href="calculate_fingerprints.html">calculate_fingerprints()</a></code> </p>
-        </td>
-        <td><p>Calculate chemical fingerprints</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="canonicalize_compound.html">canonicalize_compound()</a></code> </p>
-        </td>
-        <td><p>Find canonical compound representation</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="chemical_similarity.html">chemical_similarity()</a></code> </p>
-        </td>
-        <td><p>Calculate chemical similarity between compounds.</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="chemical_similarity_threshold.html">chemical_similarity_threshold()</a></code> </p>
-        </td>
-        <td><p>Find chemical similarity matches up to a threshold.</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="chunk_df.html">chunk_df()</a></code> </p>
-        </td>
-        <td><p>Split dataframe into chunks</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="compound_identity.html">compound_identity()</a></code> </p>
-        </td>
-        <td><p>Find identical compounds</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="compounds.html">compounds()</a></code> </p>
-        </td>
-        <td><p>Compound input</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="convert_compound_descriptor.html">convert_compound_descriptor()</a></code> </p>
-        </td>
-        <td><p>Convert compound descriptors</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="draw_compound_grid.html">draw_compound_grid()</a></code> </p>
-        </td>
-        <td><p>Draw grid of compound structures.</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="is_organic.html">is_organic()</a></code> </p>
-        </td>
-        <td><p>Check if compound is organic</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="match_substructure.html">match_substructure()</a></code> </p>
-        </td>
-        <td><p>Find substructure matches.</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="maximum_common_substructure.html">maximum_common_substructure()</a></code> </p>
-        </td>
-        <td><p>Calculate maximum common substructure (MCS) of compounds.</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="molecular_mass.html">molecular_mass()</a></code> </p>
-        </td>
-        <td><p>Calculate molecular mass of compounds</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="murcko_scaffold.html">murcko_scaffold()</a></code> </p>
-        </td>
-        <td><p>Calculate Murcko Scaffold of compounds.</p></td>
-      </tr>
-    </tbody>
+    <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
+    <table class="ref-arguments">
+    <colgroup><col class="name" /><col class="desc" /></colgroup>
+    <tr>
+      <th>x</th>
+      <td><p>A character vector of compounds, optionally named.
+Assumed to be InChI. Specify descriptor explicitly or attach
+pre-computed fingerprints using <code><a href='compounds.html'>compounds()</a></code>.</p></td>
+    </tr>
+    <tr>
+      <th>url</th>
+      <td><p>URL to the lspcheminf python server</p></td>
+    </tr>
     </table>
-  </div>
 
+    <h2 class="hasAnchor" id="value"><a class="anchor" href="#value"></a>Value</h2>
+
+    <p>A character containing the common substructure of the query compounds.</p>
+
+    <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
+    <pre class="examples"><div class='input'><span class='fu'>maximum_common_substructure</span><span class='op'>(</span>
+  <span class='fu'><a href='compounds.html'>compounds</a></span><span class='op'>(</span>
+    <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span><span class='op'>(</span>
+      <span class='st'>"O=C(NCc1cc(OC)c(O)cc1)CCCC/C=C/C(C)C"</span>,
+      <span class='st'>"CC(C)CCCCCC(=O)NCC1=CC(=C(C=C1)O)OC"</span>,
+      <span class='st'>"c1(C=O)cc(OC)c(O)cc1"</span>
+    <span class='op'>)</span>,
+    descriptor <span class='op'>=</span> <span class='st'>"smiles"</span>
+  <span class='op'>)</span>
+<span class='op'>)</span>
+</div><div class='output co'>#&gt; [1] "COC1:C:C(C):C:C:C:1O"</div></pre>
+  </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <nav id="toc" data-toggle="toc" class="sticky-top">
       <h2 data-toc-skip>Contents</h2>
