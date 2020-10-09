@@ -79,10 +79,8 @@ json_to_tibble <- function(json, extract = NULL, ...) {
 #'
 #' See [rlang::op-null-default] for details.
 #'
-#' @name %||%
-#' @rdname op-null-default
+#' @name op-null-default
 #' @keywords internal
-#' @export
 #' @importFrom rlang %||%
 #' @usage lhs \%||\% rhs
 NULL
