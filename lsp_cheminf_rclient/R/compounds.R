@@ -6,12 +6,14 @@
 #' @param x A character vector of compounds encoded in the given way. Optionally named
 #' @param fingerprints Optionally, a character vector of hexadecimal encoded fingerprints
 #' @param descriptor Chemical descriptor used for encoding the compounds
+#' @param keep_invalid Keep invalid compounds
 #'
 #' @return A character vector with the appropriate descriptor class set. Can be
 #'   used as input for other lspcheminf functions.
 #' @export
 compounds <- function(
-  x, fingerprints = NULL, descriptor = c("inchi", "smiles", "smarts", "fingerprint")
+  x, fingerprints = NULL, descriptor = c("inchi", "smiles", "smarts", "fingerprint"),
+  keep_invalid = FALSE
 ) {
   descriptor = match.arg(descriptor)
   if ("compounds" %in% class(x))
@@ -21,10 +23,16 @@ compounds <- function(
   if (!all(valid)) {
     invalid_names <- names(x) %||% seq_along(x) %>%
       magrittr::extract(!valid)
-    stop(
-      "Invalid compounds: ",
+    warning(
+      if (!keep_invalid) "Removing ",
+      "invalid compounds: ",
       paste(invalid_names, collapse = ", ")
     )
+    if (!keep_invalid) {
+      x <- x[valid]
+      if (!is.null(fingerprints))
+        fingerprints <- fingerprints[valid]
+    }
   }
   out <- x
   attr(out, "descriptor") <- descriptor
@@ -54,7 +62,7 @@ validator_functions <- list(
     {grepl("^((InChI=)?[^J][0-9a-z+\\-\\(\\)\\\\\\/,]+)$", ., ignore.case = TRUE, perl = TRUE)},
   smiles = . %>%
     trimws() %>%
-    {grepl("^([^J][A-Za-z0-9@+\\-\\[\\]\\(\\)\\\\\\/%=#$]+)$", ., ignore.case = TRUE, perl = TRUE)},
+    {grepl("^([^J][A-Za-z0-9@+\\.\\-\\[\\]\\(\\)\\\\\\/%=#$]+)$", ., ignore.case = TRUE, perl = TRUE)},
   smarts = . %>%
     trimws() %>%
     {grepl("^([^J][0-9BCOHNSOPrIFla@\\+\\-\\[\\]\\(\\)\\\\\\/%=#$,.~&!]{6,})$", ., ignore.case = TRUE, perl = TRUE)},
