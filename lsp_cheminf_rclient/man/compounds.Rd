@@ -7,8 +7,7 @@
 compounds(
   x,
   fingerprints = NULL,
-  descriptor = c("inchi", "smiles", "smarts", "fingerprint"),
-  keep_invalid = FALSE
+  descriptor = c("inchi", "smiles", "smarts", "fingerprint")
 )
 }
 \arguments{
@@ -17,8 +16,6 @@ compounds(
 \item{fingerprints}{Optionally, a character vector of hexadecimal encoded fingerprints}
 
 \item{descriptor}{Chemical descriptor used for encoding the compounds}
-
-\item{keep_invalid}{Keep invalid compounds}
 }
 \value{
 A character vector with the appropriate descriptor class set. Can be
