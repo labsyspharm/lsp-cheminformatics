@@ -44,7 +44,7 @@ def make_tautomers(mol, max_tautomers=10):
 
 def canonicalize_compound(
     mol: Chem.Mol, canonicalizer_fun: Callable, standardizer_fun: Optional[Callable],
-):
+) -> Tuple[Chem.Mol, Mapping[str, bool]]:
     done = {k: False for k in ["standardize_1", "canonicalize", "standardize_2"]}
     if standardizer_fun is not None:
         try:
@@ -72,7 +72,7 @@ def canonicalize(
     standardizer: str = "chembl",
     progress_callback: Optional[Callable] = None,
     timeout: Optional[int] = None,
-) -> Tuple[Mapping[str, Chem.Mol], List[str]]:
+) -> Tuple[Mapping[str, Tuple[Chem.Mol, Mapping[str, bool]]], List[str]]:
     @concurrent.process(timeout=timeout)
     def process_compound(*args, **kwargs):
         return canonicalize_compound(*args, **kwargs)

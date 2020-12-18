@@ -90,7 +90,7 @@ def canonicalize(
     out_df = pd.DataFrame(
         {
             "row": list(canonical.keys()),
-            "inchi": list(mol_to_inchi(x) for x in canonical.values()),
+            "inchi": list(mol_to_inchi(x[0]) for x in canonical.values()),
         }
     )
     out_df = out_df.append(pd.DataFrame({"row": skipped}), sort=True)
