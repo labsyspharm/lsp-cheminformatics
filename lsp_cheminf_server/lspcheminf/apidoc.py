@@ -9,7 +9,7 @@ import lspcheminf.schemas as schemas
 
 spec = APISpec(
     title="TAS Chemoinformatics tools",
-    version="0.4.1",
+    version="0.4.2",
     openapi_version="3.0.2",
     plugins=[FlaskPlugin(), MarshmallowPlugin()],
 )

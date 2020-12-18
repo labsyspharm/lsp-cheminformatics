@@ -87,11 +87,12 @@ def canonicalize(
     # progress.finish()
     click.echo("Finished canonicalization")
     mol_to_inchi = mol_identifier_mapping["inchi"]
-    out_df = pd.DataFrame(
-        {
-            "row": list(canonical.keys()),
-            "inchi": list(mol_to_inchi(x[0]) for x in canonical.values()),
-        }
-    )
+    canonical_inchis = []
+    for k, v in canonical.items():
+        try:
+            canonical_inchis.append((k, mol_to_inchi(v[0])))
+        except Exception:
+            skipped.append(k)
+    out_df = pd.DataFrame.from_records(canonical_inchis, columns=["row", "inchi"])
     out_df = out_df.append(pd.DataFrame({"row": skipped}), sort=True)
     out_df.to_csv(output_file, index=False)
