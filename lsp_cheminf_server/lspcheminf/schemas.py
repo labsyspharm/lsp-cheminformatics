@@ -110,11 +110,21 @@ class SimilarityResultSchema(Schema):
 
 
 class SimilarityThresholdSchema(SimilaritySchema):
+    query = fields.Nested(
+        CompoundsSchema,
+        description="Query compounds to be compared with the target compounds",
+        required=True,
+    )
     target = fields.Nested(
         CompoundsSchema,
         description="Target compounds to be compared with the query compounds. If omitted "
         "query compounds are matched against each other",
         required=False,
+    )
+    fingerprint_type = fields.String(
+        validate=validate.OneOf(fingerprint_functions.keys()),
+        missing="topological",
+        description="The type of fingerprinting algorithm to be used",
     )
     threshold = fields.Float(
         validate=validate.Range(0, 1, error="Threshold must between 0.0 and 1.0"),
