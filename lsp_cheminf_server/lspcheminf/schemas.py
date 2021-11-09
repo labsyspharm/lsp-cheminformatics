@@ -2,6 +2,7 @@ from marshmallow import Schema, fields, validate
 
 from .util import identifier_mol_mapping
 from .fingerprint import fingerprint_functions
+from .tautomers import STANDARDIZERS
 
 identifier_field = fields.String(
     validate=validate.OneOf(identifier_mol_mapping.keys()),
@@ -51,10 +52,12 @@ class TautomerizeResultSchema(Schema):
 
 class CanonicalizeSchema(Schema):
     compounds = fields.Nested(CompoundsSchema, required=True)
-    standardize = fields.Boolean(
-        missing=True,
+    standardizer = fields.String(
+        missing="chembl-parent",
+        validate=validate.OneOf(STANDARDIZERS.keys()),
         description="Standardize input molecule before canonicalization. "
-        "See https://molvs.readthedocs.io/en/latest/guide/standardize.html",
+        "See https://molvs.readthedocs.io/en/latest/guide/standardize.html "
+        "and https://github.com/chembl/ChEMBL_Structure_Pipeline",
     )
 
 

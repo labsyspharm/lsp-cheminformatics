@@ -74,7 +74,7 @@ def canonicalize_route():
     """
     data = CanonicalizeSchema().load(request.json)
     compounds, skipped = convert_compound_request(data["compounds"])
-    res, skipped = canonicalize(compounds, standardize=data["standardize"])
+    res, skipped = canonicalize(compounds, standardizer=data["standardizer"])
     mol_to_inchi = mol_identifier_mapping["inchi"]
     out = {
         "canonical": {

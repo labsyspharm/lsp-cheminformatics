@@ -65,6 +65,10 @@ def canonicalize_compound(
             pass
     return mol, done
 
+@concurrent.process(timeout=60)
+def canonicalize_compound_timed(*args, **kwargs):
+    return canonicalize_compound(*args, **kwargs)
+
 
 def canonicalize(
     compounds: Mapping[str, Chem.Mol],
@@ -73,9 +77,7 @@ def canonicalize(
     progress_callback: Optional[Callable] = None,
     timeout: Optional[int] = None,
 ) -> Tuple[Mapping[str, Tuple[Chem.Mol, Mapping[str, bool]]], List[str]]:
-    @concurrent.process(timeout=timeout)
-    def process_compound(*args, **kwargs):
-        return canonicalize_compound(*args, **kwargs)
+
 
     canonicalizer_fun = tautomer.TautomerCanonicalizer()
     res = {}
@@ -87,7 +89,7 @@ def canonicalize(
     for i, (k, mol) in enumerate(compounds.items()):
         if i % 100 == 0 and progress_callback is not None:
             progress_callback(i)
-        future = process_compound(
+        future = canonicalize_compound_timed(
             mol, canonicalizer_fun=canonicalizer_fun, standardizer_fun=standardizer_fun
         )
         try:

@@ -1,8 +1,10 @@
 #' Find canonical compound representation
 #'
 #' @param query A character vector of compounds as InChI strings. Can optionally be named.
-#' @param standardize Standardize input molecule before canonicalization.
-#'   See https://molvs.readthedocs.io/en/latest/guide/standardize.html
+#' @param standardizer Standardize input molecule before canonicalization.
+#'   Options are "chembl", "chembl-parent", and "molvs"
+#'   See https://molvs.readthedocs.io/en/latest/guide/standardize.html and
+#'   https://github.com/chembl/ChEMBL_Structure_Pipeline
 #' @template url_template
 #' @return A tibble with two columns, containing query compound names and their
 #'   canonicalized InChI.
@@ -16,13 +18,13 @@
 #' @export
 canonicalize_compound <- function(
   query,
-  standardize = TRUE,
+  standardizer = "chembl-parent",
   url = "http://127.0.0.1:8000"
 ) {
   cmpds <- compounds(query)
   request_body <- list(
     compounds = make_compound_json(cmpds),
-    standardize = standardize
+    standardizer = standardizer
   )
   response <- httr::POST(
     httr::modify_url(url, path = "tautomers/canonicalize"),

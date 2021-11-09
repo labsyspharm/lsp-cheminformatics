@@ -72,7 +72,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">lspcheminf</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">0.4.2</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">0.4.3</span>
       </span>
     </div>
 
@@ -80,7 +80,7 @@
       <ul class="nav navbar-nav">
         <li>
   <a href="../index.html">
-    <span class="fas fa fas fa-home fa-lg"></span>
+    <span class="fas fa-home fa-lg"></span>
      
   </a>
 </li>
@@ -91,7 +91,7 @@
       <ul class="nav navbar-nav navbar-right">
         <li>
   <a href="https://github.com/labsyspharm/lsp-cheminformatics/">
-    <span class="fab fa fab fa-github fa-lg"></span>
+    <span class="fab fa-github fa-lg"></span>
      
   </a>
 </li>
@@ -117,7 +117,11 @@
     <p>Find canonical compound representation</p>
     </div>
 
-    <pre class="usage"><span class='fu'>canonicalize_compound</span><span class='op'>(</span><span class='va'>query</span>, standardize <span class='op'>=</span> <span class='cn'>TRUE</span>, url <span class='op'>=</span> <span class='st'>"http://127.0.0.1:8000"</span><span class='op'>)</span></pre>
+    <pre class="usage"><span class='fu'>canonicalize_compound</span><span class='op'>(</span>
+  <span class='va'>query</span>,
+  standardizer <span class='op'>=</span> <span class='st'>"chembl-parent"</span>,
+  url <span class='op'>=</span> <span class='st'>"http://127.0.0.1:8000"</span>
+<span class='op'>)</span></pre>
 
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
     <table class="ref-arguments">
@@ -127,9 +131,11 @@
       <td><p>A character vector of compounds as InChI strings. Can optionally be named.</p></td>
     </tr>
     <tr>
-      <th>standardize</th>
+      <th>standardizer</th>
       <td><p>Standardize input molecule before canonicalization.
-See https://molvs.readthedocs.io/en/latest/guide/standardize.html</p></td>
+Options are "chembl", "chembl-parent", and "molvs"
+See https://molvs.readthedocs.io/en/latest/guide/standardize.html and
+https://github.com/chembl/ChEMBL_Structure_Pipeline</p></td>
     </tr>
     <tr>
       <th>url</th>
@@ -149,11 +155,11 @@ canonicalized InChI.</p>
     <span class='st'>"aspirin"</span> <span class='op'>=</span> <span class='st'>"InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,12)"</span>
   <span class='op'>)</span>
 <span class='op'>)</span>
-</div><div class='output co'>#&gt; <span style='color: #555555;'># A tibble: 2 x 2</span><span>
+</div><div class='output co'>#&gt; <span style='color: #949494;'># A tibble: 2 × 2</span>
 #&gt;   compound   inchi                                                              
-#&gt;   </span><span style='color: #555555;font-style: italic;'>&lt;chr&gt;</span><span>      </span><span style='color: #555555;font-style: italic;'>&lt;chr&gt;</span><span>                                                              
-#&gt; </span><span style='color: #555555;'>1</span><span> aspirin    InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5,10H,1H2,(H,1…
-#&gt; </span><span style='color: #555555;'>2</span><span> tofacitnib InChI=1S/C16H20N6O/c1-11-5-8-22(14(23)3-6-17)9-13(11)21(2)16-12-4-…</div></span></pre>
+#&gt;   <span style='color: #949494; font-style: italic;'>&lt;chr&gt;</span>      <span style='color: #949494; font-style: italic;'>&lt;chr&gt;</span>                                                              
+#&gt; <span style='color: #BCBCBC;'>1</span> aspirin    InChI=1S/C9H8O4/c1-6(10)13-8-5-3-2-4-7(8)9(11)12/h2-5H,1H3,(H,11,1…
+#&gt; <span style='color: #BCBCBC;'>2</span> tofacitnib InChI=1S/C16H20N6O/c1-11-5-8-22(14(23)3-6-17)9-13(11)21(2)16-12-4-…</div></pre>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <nav id="toc" data-toggle="toc" class="sticky-top">
